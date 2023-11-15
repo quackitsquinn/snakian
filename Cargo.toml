@@ -17,7 +17,6 @@ x86_64 = "0.14.11"
 
 
 [package.metadata.bootimage]
-test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio",
-             "-display", "none"]
+test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio","-display", "none"]
 test-success-exit-code = 33
 test-timeout = 30
