@@ -9,8 +9,10 @@
 use core::panic::PanicInfo;
 use core::fmt::Write;
 
+use snakian::interrupts::init_idt;
 use snakian::vga_driver::{ColorCode, Color};
-use snakian::{serial_println, println};
+use snakian::{serial_println, println, init};
+use x86_64::instructions;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
 #[cfg(not(test))]
@@ -28,9 +30,9 @@ pub fn panic_handle(panic: &PanicInfo) -> ! {
 }
 
 fn entry_point() -> ! {
-    let mut cyc = 0u8;
-    serial_println!("Hello World!");
-    println!("test");
+    init();
+    instructions::interrupts::int3();
+    println!("Hello World{}", "!");
     loop {}
 }
 
@@ -39,7 +41,7 @@ pub extern "C" fn _start() -> ! {
 
     #[cfg(test)]
     test_main();
-    
+
     entry_point();
 }
 
