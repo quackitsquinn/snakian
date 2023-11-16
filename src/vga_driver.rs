@@ -218,6 +218,15 @@ pub fn _print(args: fmt::Arguments) {
     WRITER.lock().write_fmt(args).unwrap();
 }
 
+#[doc(hidden)]
+pub fn _eprint(args: fmt::Arguments) {
+    let mut writer = WRITER.lock();
+    let orig = writer.color_code;
+    writer.color_code = ColorCode::new(Color::Yellow, Color::Black, false);
+    writer.write_fmt(args).unwrap();
+    writer.color_code = orig;
+}
+
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ($crate::vga_driver::_print(format_args!($($arg)*)));
@@ -227,6 +236,17 @@ macro_rules! print {
 macro_rules! println {
     () => ($crate::vga_driver::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! eprint {
+    ($($arg:tt)*) => ($crate::vga_driver::_eprint(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! eprintln {
+    () => ($crate::vga_driver::eprint!("\n"));
+    ($($arg:tt)*) => ($crate::eprint!("{}\n", format_args!($($arg)*)));
 }
 
 

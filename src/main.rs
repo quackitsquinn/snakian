@@ -11,7 +11,7 @@ use core::fmt::Write;
 
 use snakian::interrupts::init_idt;
 use snakian::vga_driver::{ColorCode, Color};
-use snakian::{serial_println, println, init};
+use snakian::{serial_println, println, init, eprintln};
 use x86_64::instructions;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
@@ -33,6 +33,9 @@ fn entry_point() -> ! {
     init();
     instructions::interrupts::int3();
     println!("Hello World{}", "!");
+    eprintln!("Hello World{}", "!");
+    let mut chars: [u8; 32] = [0; 32];
+    rand_core::impls::fill_bytes_via_next(rng, &mut chars);
     loop {}
 }
 

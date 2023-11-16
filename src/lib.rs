@@ -19,7 +19,7 @@ pub fn panic_handler(panic: &PanicInfo) -> ! {
     // forces the write position to the beginning of the buffer (will be changed this is just for quick and dirty testing)
     vga_driver::WRITER.lock().reset();
     // set panic format to be red on white
-    vga_driver::WRITER.lock().color_code = ColorCode::new(Color::Red, Color::White, false);
+    vga_driver::WRITER.lock().color_code = ColorCode::new(Color::Red, Color::White, true);
     // write the panic message
     println!("Kernal Panic in file {} at line {}", panic.location().unwrap().file(), panic.location().unwrap().line());
     println!("Reason:{}", panic.message().unwrap());
