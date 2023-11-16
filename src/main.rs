@@ -35,7 +35,6 @@ fn entry_point() -> ! {
     println!("Hello World{}", "!");
     eprintln!("Hello World{}", "!");
     let mut chars: [u8; 32] = [0; 32];
-    rand_core::impls::fill_bytes_via_next(rng, &mut chars);
     loop {}
 }
 

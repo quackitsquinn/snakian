@@ -14,6 +14,7 @@ pub mod serial;
 pub mod vga_driver;
 pub mod testing;
 pub mod interrupts;
+pub mod gdt;
 
 pub fn panic_handler(panic: &PanicInfo) -> ! {
     // forces the write position to the beginning of the buffer (will be changed this is just for quick and dirty testing)
@@ -44,4 +45,5 @@ fn panic(info: &PanicInfo) -> ! {
 //TODO: determine if init stages should exist (aka multiple init functions like init_stage0 init_stage1 etc)
 pub fn init() {
     interrupts::init_idt();
+    gdt::init_gdt();
 }
