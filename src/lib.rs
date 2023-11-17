@@ -8,6 +8,8 @@
 
 use core::panic::PanicInfo;
 
+use hardware_interrupts::init_hardware;
+
 use crate::vga_driver::{ColorCode, Color};
 
 pub mod serial;
@@ -15,6 +17,7 @@ pub mod vga_driver;
 pub mod testing;
 pub mod interrupts;
 pub mod gdt;
+pub mod hardware_interrupts;
 
 pub fn panic_handler(panic: &PanicInfo) -> ! {
     // forces the write position to the beginning of the buffer (will be changed this is just for quick and dirty testing)
@@ -26,14 +29,14 @@ pub fn panic_handler(panic: &PanicInfo) -> ! {
     println!("Reason:{}", panic.message().unwrap());
     serial_println!("Kernal Panic in file {} at line {}", panic.location().unwrap().file(), panic.location().unwrap().line());
     serial_println!("Reason:{}", panic.message().unwrap());
-    loop {}
+    interrupts::hlt_loop();
 }
 
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() {
     test_main();
-    loop {}
+    interrupts::hlt_loop();
 }
 
 
@@ -44,6 +47,8 @@ fn panic(info: &PanicInfo) -> ! {
 }
 //TODO: determine if init stages should exist (aka multiple init functions like init_stage0 init_stage1 etc)
 pub fn init() {
+    init_hardware();
     interrupts::init_idt();
     gdt::init_gdt();
+    x86_64::instructions::interrupts::enable();
 }

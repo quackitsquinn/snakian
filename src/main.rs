@@ -9,9 +9,9 @@
 use core::panic::PanicInfo;
 use core::fmt::Write;
 
-use snakian::interrupts::init_idt;
+use snakian::interrupts::{init_idt, self};
 use snakian::vga_driver::{ColorCode, Color};
-use snakian::{serial_println, println, init, eprintln};
+use snakian::{serial_println, println, init, eprintln, sleep};
 use x86_64::instructions;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
@@ -34,8 +34,10 @@ fn entry_point() -> ! {
     instructions::interrupts::int3();
     println!("Hello World{}", "!");
     eprintln!("Hello World{}", "!");
-    let mut chars: [u8; 32] = [0; 32];
-    loop {}
+    println!("Sleeping for 5 ticks");
+    sleep!(5);
+    println!("Done sleeping!");
+    interrupts::hlt_loop();
 }
 
 #[no_mangle]

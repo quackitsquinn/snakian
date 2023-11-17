@@ -4,6 +4,8 @@ use volatile::Volatile;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
+use crate::interrupts;
+
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +76,7 @@ const BUFFER_WIDTH: usize = 80;
 
 #[repr(transparent)]
 struct Buffer {
+    /// The array of characters that make up the buffer. height x width array (annoying)
     chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
@@ -215,16 +218,22 @@ lazy_static! {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    WRITER.lock().write_fmt(args).unwrap();
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
 }
 
 #[doc(hidden)]
 pub fn _eprint(args: fmt::Arguments) {
-    let mut writer = WRITER.lock();
-    let orig = writer.color_code;
-    writer.color_code = ColorCode::new(Color::Yellow, Color::Black, false);
-    writer.write_fmt(args).unwrap();
-    writer.color_code = orig;
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        let orig = writer.color_code;
+        writer.color_code = ColorCode::new(Color::Yellow, Color::Black, false);
+        writer.write_fmt(args).unwrap();
+        writer.color_code = orig;
+});
 }
 
 #[macro_export]
@@ -256,6 +265,8 @@ mod tests {
     #[test_case]
     fn test_print() {
         print!("test");
-        //assert!(WRITER.lock().buffer.chars[0][0].read().ascii_character == b't');
+        assert_eq!(WRITER.lock().col_pos, 4);
+        assert_eq!(WRITER.lock().row_pos, 0);
+        assert_eq!(WRITER.lock().buffer.chars[0][0].read().ascii_character, b't');
     }
 }

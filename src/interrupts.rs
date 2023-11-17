@@ -5,23 +5,27 @@ use crate::{println, gdt::IST_FAULT_INDEX};
 
 
 lazy_static! {
+    pub static ref IDT_LOADER: spin::Mutex<IdtLoader> = spin::Mutex::new(IdtLoader::new());
     static ref IDT: InterruptDescriptorTable = {
+        // TODO: When a global allocator is added, use a leaking Box to allocate the IDT
+        println!("Initializing IDT"); // we want to see when this happens to ensure that it's not happening too early
+        // i really hope that lazy_static **WAITS** until somthing accesses the IDT before it initializes it
         let mut idt = InterruptDescriptorTable::new();
-
-        // breakpoint interrupt
-        idt.breakpoint.set_handler_fn(breakpoint_handler);
-        idt.double_fault.set_handler_fn(double_fault_handler);
 
         unsafe {
             idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(IST_FAULT_INDEX);
         }
-
+        
+        let mut lock = IDT_LOADER.lock();
+        lock.load(&mut idt);
         idt
     };
 }
-
+/// Initializes the IDT. This function should be called before any interrupts are enabled, and after all the handlers are added.
 pub fn init_idt() {
+    IDT_LOADER.lock().add_handler_fn(add_breakpoint_handler);
     IDT.load();
+    unsafe { PICS.lock().initialize() };
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
@@ -32,7 +36,9 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
         panic!("EXCEPTION: DOUBLE FAULT ({}) \n{:#?}",error_code, stack_frame);
 }
 
-
+fn add_breakpoint_handler(idt: &mut InterruptDescriptorTable) {
+    idt.breakpoint.set_handler_fn(breakpoint_handler);
+}
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
@@ -85,6 +91,8 @@ impl InterruptHandler {
 /// Interrupt Descriptor Table Loader for loading the IDT
 pub struct IdtLoader {
     handlers: [Option<InterruptHandler>; 256],
+    loader_fns: [Option<fn(&mut InterruptDescriptorTable)>; 256],
+    fndex: usize,
     is_loaded: bool,
 }
 
@@ -93,6 +101,8 @@ impl IdtLoader {
     fn new() -> IdtLoader {
         IdtLoader {
             handlers: [None; 256],
+            loader_fns: [None; 256],
+            fndex: 0,
             is_loaded: false,
         }
     }
@@ -108,6 +118,12 @@ impl IdtLoader {
             }
         }
 
+        for loader_fn in self.loader_fns.iter() {
+            if let Some(loader_fn) = loader_fn {
+                loader_fn(idt);
+            }
+        }
+
         self.is_loaded = true;
     }
     /// Adds a new handler to the IDT
@@ -118,5 +134,34 @@ impl IdtLoader {
             panic!("Cannot add handler after IDT is loaded!");
         }
         self.handlers[handler.index as usize] = Some(handler);
+    }
+    /// Adds a new constructed handler to the IDT without checking if the index is valid
+    pub fn add_raw_unchecked(&mut self, index: u8, handler: HandlerFn) {
+        if self.is_loaded {
+            panic!("Cannot add handler after IDT is loaded!");
+        }
+        self.handlers[index as usize] = Some(unsafe {InterruptHandler::new_unchecked(index, handler)});
+    }
+    /// Adds a new handler to the IDT constructed from the index and handler
+    pub fn add_raw(&mut self, index: InterruptIndex, handler: HandlerFn) {
+        if self.is_loaded {
+            panic!("Cannot add handler after IDT is loaded!");
+        }
+        self.handlers[index.as_usize()] = Some(InterruptHandler::new(index, handler));
+    }
+
+    pub fn add_handler_fn(&mut self, fun: fn(&mut InterruptDescriptorTable)) {
+        assert!(self.fndex < 256, "Cannot add more than 256 handlers!");
+        if self.is_loaded {
+            panic!("Cannot add handler after IDT is loaded!");
+        }
+        self.loader_fns[self.fndex] = Some(fun);
+        self.fndex += 1;
+    }
+}
+
+pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
     }
 }
