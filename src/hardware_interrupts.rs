@@ -55,7 +55,7 @@ pub mod keyboard {
     use spin::Mutex;
     use x86_64::instructions::port::{Port, ReadOnlyAccess};
 
-    use crate::interrupts::PICS;
+    use crate::{interrupts::PICS, keyboard_driver::KEYBOARD_DRIVER};
     use lazy_static::lazy_static;
 
     use super::*;
@@ -68,19 +68,9 @@ pub mod keyboard {
 
         let mut port = Port::new(0x60);
         let scancode: u8 = unsafe { port.read() };
-        let mut keyboard = KEYBOARD.lock();
-        if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
-            if let Some(key) = keyboard.process_keyevent(key_event) {
-                match key {
-                    pc_keyboard::DecodedKey::Unicode(character) => {
-                        print!("{}", character);
-                    }
-                    pc_keyboard::DecodedKey::RawKey(key) => {
-                        print!("{:?}", key);
-                    }
-                }
-            }
-        }
+        unsafe {KEYBOARD_DRIVER.force_unlock();}
+        
+        KEYBOARD_DRIVER.lock().handle_byte(scancode);
         unsafe {
             PICS.lock().notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
         }

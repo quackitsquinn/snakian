@@ -10,8 +10,9 @@ use core::panic::PanicInfo;
 use core::fmt::Write;
 
 use snakian::interrupts::{init_idt, self};
+use snakian::keyboard_driver::KEYBOARD_DRIVER;
 use snakian::vga_driver::{ColorCode, Color};
-use snakian::{serial_println, println, init, eprintln, sleep};
+use snakian::{serial_println, println, init, eprintln, sleep, print, hardware_interrupts};
 use x86_64::instructions;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
@@ -31,13 +32,22 @@ pub fn panic_handle(panic: &PanicInfo) -> ! {
 
 fn entry_point() -> ! {
     init();
-    instructions::interrupts::int3();
-    println!("Hello World{}", "!");
-    eprintln!("Hello World{}", "!");
-    println!("Sleeping for 5 ticks");
-    sleep!(5);
-    println!("Done sleeping!");
-    interrupts::hlt_loop();
+
+    println!("Init complete!");
+    println!("Entering loop");
+    let mut key: Option<char> = None;
+    loop {
+        if let Some(curchar) = KEYBOARD_DRIVER.lock().current_char {
+            if key != Some(curchar) {
+                key = Some(curchar);
+                print!("{}", curchar);
+            }
+        } else {
+            key = None;
+        }
+        // This hlt is necessary because the keyboard driver needs to be able to unlock the keyboard
+        instructions::hlt();
+    }
 }
 
 #[no_mangle]

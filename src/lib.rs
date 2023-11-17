@@ -18,6 +18,7 @@ pub mod testing;
 pub mod interrupts;
 pub mod gdt;
 pub mod hardware_interrupts;
+pub mod keyboard_driver;
 
 pub fn panic_handler(panic: &PanicInfo) -> ! {
     // forces the write position to the beginning of the buffer (will be changed this is just for quick and dirty testing)

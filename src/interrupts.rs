@@ -7,7 +7,8 @@ use crate::{println, gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex};
 lazy_static! {
     pub static ref IDT_LOADER: spin::Mutex<IdtLoader> = spin::Mutex::new(IdtLoader::new());
     static ref IDT: InterruptDescriptorTable = {
-        // TODO: When a global allocator is added, use a leaking Box to allocate the IDT
+        // TODO: When a global allocator is added, use a leaking Box to allocate the IDT.
+        // I really **REALLY** dislike this solution, but it's the only one that works for now (at my skill of rust magic)
         println!("Initializing IDT"); // we want to see when this happens to ensure that it's not happening too early
         // i really hope that lazy_static **WAITS** until somthing accesses the IDT before it initializes it
         let mut idt = InterruptDescriptorTable::new();
