@@ -1,3 +1,5 @@
+
+
 use pic8259::ChainedPics;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use lazy_static::lazy_static;
@@ -13,6 +15,7 @@ lazy_static! {
         // i really hope that lazy_static **WAITS** until somthing accesses the IDT before it initializes it
         let mut idt = InterruptDescriptorTable::new();
 
+        x86_64::set_general_handler!(&mut idt,general_handler);
         unsafe {
             idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(IST_FAULT_INDEX);
         }
@@ -27,6 +30,14 @@ pub fn init_idt() {
     IDT_LOADER.lock().add_handler_fn(add_breakpoint_handler);
     IDT.load();
     unsafe { PICS.lock().initialize() };
+}
+
+fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Option<u64>) {
+    if let Some(code) = error_code {
+        println!("EXCEPTION: {} ({})\n{:#?}", index, code, stack_frame);
+    } else {
+        println!("EXCEPTION: {}\n{:#?}", index, stack_frame);
+    }
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
