@@ -202,6 +202,20 @@ impl Writer {
         self.color_code = ColorCode::default();
         self.buffer.clear();
     }
+
+    pub fn backspace(&mut self) {
+        if self.col_pos > 0 {
+            self.col_pos -= 1;
+            self.write_byte(b' ');
+            self.col_pos -= 1;
+        } else if self.row_pos > 0 {
+            self.col_pos = BUFFER_WIDTH - 1;
+            self.row_pos -= 1;
+            self.write_byte(b' ');
+            self.col_pos = BUFFER_WIDTH - 1;
+            self.row_pos -= 1;
+        }
+    }
 }
 
 impl Write for Writer {

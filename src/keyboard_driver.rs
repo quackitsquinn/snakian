@@ -19,6 +19,7 @@ pub struct KeyboardDriver {
     /// The array of keys that are currently pressed; true if pressed, false if not pressed.
     pub pressed_keys: [bool; 128],
     pub current_char: Option<char>,
+    pub current_char_as_key: Option<KeyCode>,
     pub current_key: Option<KeyCode>,
     pub is_unicode: bool,
 }
@@ -30,6 +31,7 @@ impl KeyboardDriver {
         KeyboardDriver {
             pressed_keys: [false; 128],
             current_char: None,
+            current_char_as_key: None,
             current_key: None,
             is_unicode: false,
         }
@@ -39,7 +41,7 @@ impl KeyboardDriver {
     pub fn handle_key_event(&mut self, event: KeyEvent) {
         let decode = KEYBOARD.lock().process_keyevent(event.clone());
         if let Some(key) = decode {
-            self.set_char_or_key(key); // never nesting :)
+            self.set_char_or_key(key, event.code); // never nesting :)
             self.pressed_keys[event.code as usize] = true;
         } else {
             self.pressed_keys[event.code as usize] = false;
@@ -54,11 +56,12 @@ impl KeyboardDriver {
         }
     }
 
-    fn set_char_or_key(&mut self, event: DecodedKey) {
+    fn set_char_or_key(&mut self, event: DecodedKey, code: KeyCode) {
         match event {
             pc_keyboard::DecodedKey::Unicode(character) => {
                 self.current_char = Some(character);
                 self.current_key = None; // make sure we arent printing stale data
+                self.current_char_as_key = Some(code);
                 self.is_unicode = true;
             },
             pc_keyboard::DecodedKey::RawKey(key) => {
