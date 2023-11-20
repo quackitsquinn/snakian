@@ -17,6 +17,7 @@ use snakian::vga_driver::{ColorCode, Color, WRITER};
 use snakian::{serial_println, println, init, eprintln, sleep, print, hardware_interrupts};
 use x86_64::instructions;
 use x86_64::structures::idt::InterruptDescriptorTable;
+use bootloader_api::{BootInfo, entry_point};
 
 #[cfg(not(test))]
 #[panic_handler]
@@ -57,8 +58,10 @@ fn entry_point() -> ! {
     }
 }
 
+entry_point!(kmain);
+
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
+fn kmain(boot_info: &'static mut BootInfo) -> ! {
 
     #[cfg(test)]
     test_main();
