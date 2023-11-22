@@ -9,7 +9,6 @@ test = false
 bench = false
 
 [dependencies]
-bootloader = "0.11.4"
 bootloader_api = "0.11.4"
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 pc-keyboard = "0.7.0"
@@ -18,6 +17,5 @@ spin = "0.9.8"
 uart_16550 = "0.3.0"
 volatile = "0.2.6"
 x86_64 = "0.14.11"
-#bootloader = { path = "bootloader" }
-#bootloader_api = { path = "bootloader/api"}
+
 

@@ -19,7 +19,7 @@ use x86_64::instructions;
 use x86_64::structures::idt::InterruptDescriptorTable;
 use bootloader_api::{BootInfo, entry_point};
 
-#[cfg(not(test))]
+//#[cfg(not(test))]
 #[panic_handler]
 pub fn panic_handle(panic: &PanicInfo) -> ! {
     use snakian_kernel::panic_handler;
@@ -33,7 +33,7 @@ pub fn panic_handle(panic: &PanicInfo) -> ! {
     snakian_kernel::panic_handler(panic);
 }
 
-fn entry_point() -> ! {
+fn os_entry_point() -> ! {
     init();
 
     println!("Init complete!");
@@ -66,7 +66,7 @@ fn kmain(boot_info: &'static mut BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
-    entry_point();
+    os_entry_point();
 }
 
 

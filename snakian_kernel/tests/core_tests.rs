@@ -1,16 +1,16 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![test_runner(snakian::testing::test_runner)]
+#![test_runner(snakian_kernel::testing::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
 
-snakian::test_main!();
+snakian_kernel::test_main!();
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    snakian::testing::panic_handler(info)
+    snakian_kernel::testing::panic_handler(info)
 }
 
 #[test_case]

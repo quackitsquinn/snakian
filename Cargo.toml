@@ -10,6 +10,7 @@ members = ["snakian_kernel"]
 
 [build-dependencies]
 bootloader = "0.11.4"
-snakian_kernel = { path = "snakian_kernel", artifact = "bin", target = "x86_64-unknown-none"}
+snakian_kernel = { path = "snakian_kernel", artifact = "bin"}
 
 [dependencies]
+bitflags = { version = "2.4.1", default-features = false }
