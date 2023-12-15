@@ -1,10 +1,12 @@
-use core::fmt::{Write, self};
+use core::{fmt::{Write, self}, mem};
 
+use bootloader_api::{info::{FrameBufferInfo, FrameBuffer}, config, BootInfo};
+use conquer_once::spin::OnceCell;
 use volatile::Volatile;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
-use crate::interrupts;
+use crate::{interrupts, dbg, serial_print, serial_println};
 
 
 #[allow(dead_code)]
@@ -69,88 +71,123 @@ impl ScreenChar {
             color_code: color_code,
         }
     }
+
+    pub fn none() -> ScreenChar {
+        ScreenChar {
+            ascii_character: 0,
+            color_code: ColorCode::default(),
+        }
+    }
 }
 
-const BUFFER_HEIGHT: usize = 25;
-const BUFFER_WIDTH: usize = 80;
+pub type RGB = (u8, u8, u8);
+pub type CharSprite = [RGB; 8 * 8]; // will be added later, but this skeleton is here for now.
 
-#[repr(transparent)]
-struct Buffer {
-    /// The array of characters that make up the buffer. height x width array (annoying)
-    chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
+const MAX_BUFF_SIZE: usize = 256;
+// also chars will be taken from https://github.com/dhepper/font8x8/tree/master
+
+
+struct Buffer<'a> {
+    display: &'a [RGB],
+    config: FrameBufferInfo,
+    char_scale: usize, // this will be used to scale the characters to the screen size. (variable font size)
+    char_buff_size: (usize, usize),
+    char_buffer: [[ScreenChar; MAX_BUFF_SIZE]; MAX_BUFF_SIZE],
 }
 
-impl Buffer {
+impl<'a> Buffer<'a> {
+    pub fn new(buf: &FrameBuffer) -> Buffer<'a> {
+        let config = buf.info();
+
+        let flat = buf.buffer();
+        // SAFETY: the buffer is a slice of RGB tuples, which are the size of u8 * 3, so it is safe to transmute from a slice of u8s to a slice of RGBs
+        let display = unsafe { mem::transmute::<&[u8], &[RGB]>(flat) };
+
+        let char_buf_size = (config.width as usize / 8, config.width as usize / 8);
+
+        Buffer {
+            display: display,
+            config,
+            char_scale: 1,
+            char_buff_size: char_buf_size,
+            char_buffer: [[ScreenChar::none(); MAX_BUFF_SIZE]; MAX_BUFF_SIZE],
+        }
+    }
     pub fn clear(&mut self) {
         self.fill(b' ', ColorCode::default());
     }
 
     pub fn clear_row(&mut self, row: usize) {
-        assert!(row < BUFFER_HEIGHT);
         self.fill_row(row, b' ', ColorCode::default());
     }
 
     pub fn fill(&mut self, c: u8, color_code: ColorCode) {
-        for row in 0..BUFFER_HEIGHT {
-            for col in 0..BUFFER_WIDTH {
-                self.chars[row][col] = Volatile::new(ScreenChar::new(c, color_code));
+        for row in 0..self.char_buff_size.1 {
+            for col in 0..self.char_buff_size.0 {
+                self.char_buffer[row][col] = ScreenChar::new(c, color_code);
             }
         }
     }
 
     pub fn fill_row(&mut self, row: usize, c: u8, color_code: ColorCode) {
-        assert!(row < BUFFER_HEIGHT);
-        for col in 0..BUFFER_WIDTH {
-            self.chars[row][col] = Volatile::new(ScreenChar::new(c, color_code));
+        for col in 0..self.char_buff_size.0 {
+            self.char_buffer[row][col] = ScreenChar::new(c, color_code);
         }
     }
 }
 
-pub struct Writer {
+pub struct Writer<'a> {
     col_pos: usize,
     row_pos: usize,
     pub color_code: ColorCode,
-    buffer: &'static mut Buffer,
+    buffer: Buffer<'a>
 }
 
-impl Writer {
-    pub fn new() -> Writer {
+impl<'a> Writer<'a> {
+    pub fn new(config: &mut FrameBuffer) -> Writer<'a> {
+        let buf = Buffer::new(&config);
         Writer {
             col_pos: 0,
             row_pos: 0,
             color_code: ColorCode::new(Color::White, Color::Black, false),
-            buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+            buffer: buf,
         }
     }
+
     fn shift_up(&mut self) {
-        for row in 1..BUFFER_HEIGHT {
-            for col in 0..BUFFER_WIDTH {
-                let c = self.buffer.chars[row][col].read();
-                self.buffer.chars[row - 1][col].write(c);
+        let buf_height = self.buffer.char_buff_size.1;
+        let buf_width = self.buffer.char_buff_size.0;
+        for row in 1..buf_height {
+            for col in 0..buf_width {
+                let c = self.buffer.char_buffer[row][col];
+                self.buffer.char_buffer[row - 1][col] = c;
             }
         }
-        self.buffer.clear_row(BUFFER_HEIGHT - 1);
+        self.buffer.clear_row(buf_height - 1);
     }
+
     fn new_line(&mut self) {
+        let buf_height = self.buffer.char_buff_size.1;
         self.col_pos = 0;
         self.row_pos += 1;
-        if self.row_pos >= BUFFER_HEIGHT {
+        if self.row_pos >= buf_height {
             self.shift_up();
-            self.row_pos = BUFFER_HEIGHT - 1;
+            self.row_pos = buf_height - 1;
         }
     }
 
     pub fn write_byte(&mut self, byte: u8) {
+        let buf_width = self.buffer.char_buff_size.0;
         match byte {
             b'\n' => self.new_line(),
             byte => {
-                if self.col_pos >= BUFFER_WIDTH {
+                if self.col_pos >= buf_width {
                     self.new_line();
                 }
                 let row = self.row_pos;
                 let col = self.col_pos;
                 let color_code = self.color_code;
-                self.buffer.chars[row][col].write(ScreenChar::new(byte, color_code));
+                self.buffer.char_buffer[row][col] = ScreenChar::new(byte, color_code);
                 self.col_pos += 1;
             }
         }
@@ -168,17 +205,18 @@ impl Writer {
     }
 
     pub fn write_byte_at(&mut self, byte: u8, row: usize, col: usize) {
-        assert!(row < BUFFER_HEIGHT);
-        assert!(col < BUFFER_WIDTH);
+        assert!(row < MAX_BUFF_SIZE);
+        assert!(col < MAX_BUFF_SIZE);
         let color_code = self.color_code;
-        self.buffer.chars[row][col].write(ScreenChar::new(byte, color_code));
+        self.buffer.char_buffer[row][col] = ScreenChar::new(byte, color_code);
     }
 
     pub fn write_string_at(&mut self, s: &str, row: usize, col: usize, wrap: bool) {
-        assert!(row < BUFFER_HEIGHT);
-        assert!(col < BUFFER_WIDTH);
-        if wrap && s.len() > BUFFER_WIDTH - col {
-            let (first, second) = s.split_at(BUFFER_WIDTH - col);
+        assert!(row < MAX_BUFF_SIZE);
+        assert!(col < MAX_BUFF_SIZE);
+        let buf_width = self.buffer.char_buff_size.0;
+        if wrap && s.len() > buf_width - col {
+            let (first, second) = s.split_at(buf_width - col);
             self.write_string_at(first, row, col, false);
             self.write_string_at(second, row + 1, 0, true);
         } else {
@@ -204,21 +242,22 @@ impl Writer {
     }
 
     pub fn backspace(&mut self) {
+        let buf_width = self.buffer.char_buff_size.0;
         if self.col_pos > 0 {
             self.col_pos -= 1;
             self.write_byte(b' ');
             self.col_pos -= 1;
         } else if self.row_pos > 0 {
-            self.col_pos = BUFFER_WIDTH - 1;
+            self.col_pos = buf_width - 1;
             self.row_pos -= 1;
             self.write_byte(b' ');
-            self.col_pos = BUFFER_WIDTH - 1;
+            self.col_pos = buf_width - 1;
             self.row_pos -= 1;
         }
     }
 }
 
-impl Write for Writer {
+impl<'a> Write for Writer<'a> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
         Ok(())
@@ -226,8 +265,13 @@ impl Write for Writer {
 }
 
 
-lazy_static! {
-    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer::new());
+pub static WRITER: OnceCell<Mutex<Writer>> = OnceCell::uninit();
+
+pub fn init(config: &mut FrameBuffer) {
+    serial_println!("Initializing VGA driver!");
+    let writer = Writer::new(config);
+    dbg!("Made writer, initializing writer container!");
+    WRITER.try_init_once(|| Mutex::new(writer)).expect("WRITER already initialized");
 }
 
 #[doc(hidden)]
@@ -275,17 +319,4 @@ macro_rules! eprint {
 macro_rules! eprintln {
     () => ($crate::vga_driver::eprint!("\n"));
     ($($arg:tt)*) => ($crate::eprint!("{}\n", format_args!($($arg)*)));
-}
-
-
-mod tests {
-    use crate::vga_driver::{WRITER, BUFFER_HEIGHT};
-
-    #[test_case]
-    fn test_print() {
-        print!("test");
-        assert_eq!(WRITER.lock().col_pos, 4);
-        assert_eq!(WRITER.lock().row_pos, 0);
-        assert_eq!(WRITER.lock().buffer.chars[0][0].read().ascii_character, b't');
-    }
 }
