@@ -18,6 +18,7 @@ lazy_static! {
         x86_64::set_general_handler!(&mut idt,general_handler);
         unsafe {
             idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(IST_FAULT_INDEX);
+            idt.general_protection_fault.set_handler_fn(general_protection_fault_handler);
         }
         
         let mut lock = IDT_LOADER.lock();
@@ -38,6 +39,10 @@ fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Opti
     } else {
         println!("EXCEPTION: {}\n{:#?}", index, stack_frame);
     }
+}
+
+extern "x86-interrupt" fn general_protection_fault_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+        println!("EXCEPTION: GENERAL PROTECTION FAULT ({}) \n{:#?}",error_code, stack_frame);
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {

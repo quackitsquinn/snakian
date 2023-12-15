@@ -234,7 +234,9 @@ lazy_static! {
 pub fn _print(args: fmt::Arguments) {
     use x86_64::instructions::interrupts;
     interrupts::without_interrupts(|| {
-        WRITER.lock().write_fmt(args).unwrap();
+        crate::serial::_print(args);
+        // TODO: reimpliment this with the pixel based frame buffer.
+        //WRITER.lock().write_fmt(args).unwrap();
     });
 }
 
@@ -242,11 +244,14 @@ pub fn _print(args: fmt::Arguments) {
 pub fn _eprint(args: fmt::Arguments) {
     use x86_64::instructions::interrupts;
     interrupts::without_interrupts(|| {
+        crate::serial::_print(format_args!("ERROR: {} ", args));
+        /* 
         let mut writer = WRITER.lock();
         let orig = writer.color_code;
         writer.color_code = ColorCode::new(Color::Yellow, Color::Black, false);
         writer.write_fmt(args).unwrap();
         writer.color_code = orig;
+        */ // TODO: reimpliment this with the pixel based frame buffer. while front-facing api is still the same, the backend has to be completely re-written.
 });
 }
 
