@@ -11,7 +11,7 @@ use core::{panic::PanicInfo, mem};
 use bootloader_api::info::FrameBuffer;
 use hardware_interrupts::init_hardware;
 
-use crate::vga_driver::{ColorCode, Color};
+use crate::vga_driver::{ColorCode};
 
 pub mod serial;
 pub mod vga_driver;

@@ -1,8 +1,27 @@
+use core::mem;
+
+use crate::vga_driver::CharSprite;
+
 
 
 pub fn get_char(c: char) -> [u8; 8] {
    return CHARS[c as usize];
 }
+
+pub fn get_char_sprite(c: char) -> CharSprite {
+    // unfortunately, due to mem alignment, we cant just transmute the array to a sprite
+    // so we have to copy the array into a sprite
+    let bytes = get_char(c);
+    let mut sprite = [false; 64];
+
+    for i in 0..8 {
+        for j in 0..8 {
+            sprite[i * 8 + j] = bytes[i] & (1 << j) != 0;
+        }
+    }
+
+    sprite
+}  
 
 
 // The point where the chars are inserted into the file. Do not remove this comment.

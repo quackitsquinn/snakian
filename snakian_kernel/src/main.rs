@@ -13,8 +13,8 @@ use core::fmt::Write;
 use pc_keyboard::KeyCode;
 use snakian_kernel::interrupts::{init_idt, self};
 use snakian_kernel::keyboard_driver::KEYBOARD_DRIVER;
-use snakian_kernel::vga_driver::{ColorCode, Color, WRITER};
-use snakian_kernel::{serial_println, println, init, eprintln, sleep, print, hardware_interrupts, dbg};
+use snakian_kernel::vga_driver::{ColorCode, WRITER, self};
+use snakian_kernel::{serial_println, println, init, eprintln, sleep, print, hardware_interrupts, dbg, chars};
 use spin::Mutex;
 use x86_64::instructions;
 use x86_64::structures::idt::InterruptDescriptorTable;
@@ -38,6 +38,11 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     init(boot_info);
     dbg!("Initialized hardware!");
     dbg!("Entering main loop!");
+    let mut vga = vga_driver::WRITER.get().unwrap().lock();
+    vga.buffer.clear();
+    vga.buffer.set_scale(2);
+    vga.write_str("Welcome to SnakianOS!\n");
+    vga.write_str("This is so fucking slow lmao, im not giving any instruction to slow it");
     let mut key: Option<char> = None;
     loop {
         let lock = KEYBOARD_DRIVER.lock();
@@ -54,9 +59,7 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
             key = None;
         }
         // This hlt is necessary because the keyboard driver needs to be able to unlock the keyboard
-        dbg!("Sleeping!");
         instructions::hlt();// or asm!("hlt", options(nomem, nostack));
-        dbg!("Woke up!");
     }
 }
 
