@@ -20,6 +20,7 @@ pub mod interrupts;
 pub mod gdt;
 pub mod hardware_interrupts;
 pub mod keyboard_driver;
+pub mod chars;
 
 #[macro_export]
 
