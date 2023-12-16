@@ -2,19 +2,15 @@ use core::panic::PanicInfo;
 
 use crate::{print, println, serial_println};
 
-
-
 pub fn test_runner(tests: &[&dyn Fn()]) {
-
-    use crate::{testing, println};
+    use crate::{println, testing};
 
     serial_println!("Running {} tests", tests.len());
     for mut test in tests {
         test.run();
-    } 
+    }
     testing::exit_qemu(testing::QemuExitCode::Success);
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -35,7 +31,10 @@ pub trait Testable {
     fn run(&self) -> ();
 }
 
-impl<T> Testable for T where T:Fn() {
+impl<T> Testable for T
+where
+    T: Fn(),
+{
     fn run(&self) {
         print!("{}...\t", core::any::type_name::<T>());
         self();
@@ -44,8 +43,11 @@ impl<T> Testable for T where T:Fn() {
 }
 
 pub fn panic_handler(panic: &PanicInfo) -> ! {
-
-    serial_println!("Kernal Panic in file {} at line {}", panic.location().unwrap().file(), panic.location().unwrap().line());
+    serial_println!(
+        "Kernal Panic in file {} at line {}",
+        panic.location().unwrap().file(),
+        panic.location().unwrap().line()
+    );
     serial_println!("Reason:{}", panic.message().unwrap());
     exit_qemu(QemuExitCode::Failed);
     loop {} // if qemu doesn't exit

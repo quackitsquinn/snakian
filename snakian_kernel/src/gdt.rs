@@ -1,5 +1,14 @@
 use lazy_static::lazy_static;
-use x86_64::{structures::{idt::InterruptDescriptorTable, tss::TaskStateSegment, gdt::{GlobalDescriptorTable, Descriptor, SegmentSelector}}, VirtAddr, registers::segmentation::{CS, Segment, SS, DS, ES}, instructions::tables::load_tss};
+use x86_64::{
+    instructions::tables::load_tss,
+    registers::segmentation::{Segment, CS, DS, ES, SS},
+    structures::{
+        gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector},
+        idt::InterruptDescriptorTable,
+        tss::TaskStateSegment,
+    },
+    VirtAddr,
+};
 
 pub const IST_FAULT_INDEX: u16 = 0;
 
@@ -16,17 +25,19 @@ lazy_static! {
         };
         tss
     };
-
     static ref GDT: (GlobalDescriptorTable, Selectors) = {
         let mut gdt = GlobalDescriptorTable::new();
         let kcode = gdt.add_entry(Descriptor::kernel_code_segment());
         let kdata = gdt.add_entry(Descriptor::kernel_data_segment());
         let tss = gdt.add_entry(Descriptor::tss_segment(&TSS));
-        (gdt, Selectors {
-            code_selector: kcode,
-            data_selector: kdata,
-            tss_selector: tss,
-        })
+        (
+            gdt,
+            Selectors {
+                code_selector: kcode,
+                data_selector: kdata,
+                tss_selector: tss,
+            },
+        )
     };
 }
 
@@ -40,7 +51,6 @@ pub fn init_gdt() {
         ES::set_reg(GDT.1.data_selector);
         load_tss(GDT.1.tss_selector);
     }
-    
 }
 
 struct Selectors {

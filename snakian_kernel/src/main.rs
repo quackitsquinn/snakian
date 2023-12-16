@@ -1,24 +1,24 @@
-
-
 #![no_std]
 #![no_main]
 #![feature(panic_info_message, custom_test_frameworks)]
 #![test_runner(snakian_kernel::testing::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use core::fmt::Write;
 use core::mem::transmute;
 use core::panic::PanicInfo;
-use core::fmt::Write;
 
+use bootloader_api::{entry_point, BootInfo, BootloaderConfig};
 use pc_keyboard::KeyCode;
-use snakian_kernel::interrupts::{init_idt, self};
+use snakian_kernel::interrupts::{self, init_idt};
 use snakian_kernel::keyboard_driver::KEYBOARD_DRIVER;
-use snakian_kernel::vga_driver::{ColorCode, WRITER, self};
-use snakian_kernel::{serial_println, println, init, eprintln, sleep, print, hardware_interrupts, dbg, chars};
+use snakian_kernel::vga_driver::{self, ColorCode, WRITER};
+use snakian_kernel::{
+    chars, dbg, eprintln, hardware_interrupts, init, print, println, serial_println, sleep,
+};
 use spin::Mutex;
 use x86_64::instructions;
 use x86_64::structures::idt::InterruptDescriptorTable;
-use bootloader_api::{BootInfo, entry_point, BootloaderConfig};
 
 //#[cfg(not(test))]
 #[panic_handler]
@@ -59,20 +59,16 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
             key = None;
         }
         // This hlt is necessary because the keyboard driver needs to be able to unlock the keyboard
-        instructions::hlt();// or asm!("hlt", options(nomem, nostack));
+        instructions::hlt(); // or asm!("hlt", options(nomem, nostack));
     }
 }
-
 
 entry_point!(kmain);
 
 #[no_mangle]
 fn kmain(boot_info: &'static mut BootInfo) -> ! {
-
     #[cfg(test)]
     test_main();
 
     os_entry_point(boot_info);
 }
-
-

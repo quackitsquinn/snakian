@@ -4,7 +4,6 @@ use uart_16550::SerialPort;
 
 use crate::interrupts;
 
-
 const SERIAL_PORT_ADDR: u16 = 0x3F8;
 
 lazy_static! {
@@ -19,7 +18,10 @@ pub fn _print(args: ::core::fmt::Arguments) {
     use core::fmt::Write;
     x86_64::instructions::interrupts::without_interrupts(|| {
         unsafe { SERIAL_PORT.force_unlock() }
-        SERIAL_PORT.lock().write_fmt(args).expect("Printing to serial failed");
+        SERIAL_PORT
+            .lock()
+            .write_fmt(args)
+            .expect("Printing to serial failed");
     });
 }
 

@@ -1,15 +1,18 @@
 // A keyboard driver for the OS. Handles keyboard input such as key presses and key releases.
 
 use lazy_static::lazy_static;
-use pc_keyboard::{layouts, Keyboard, ScancodeSet1, KeyEvent, KeyCode, DecodedKey, KeyState};
+use pc_keyboard::{layouts, DecodedKey, KeyCode, KeyEvent, KeyState, Keyboard, ScancodeSet1};
 use spin::Mutex;
 
 use crate::println;
 
-
-
 lazy_static! {
-    pub static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> = Mutex::new(Keyboard::new(ScancodeSet1::new(), layouts::Us104Key,  pc_keyboard::HandleControl::Ignore));
+    pub static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
+        Mutex::new(Keyboard::new(
+            ScancodeSet1::new(),
+            layouts::Us104Key,
+            pc_keyboard::HandleControl::Ignore
+        ));
 }
 
 pub static KEYBOARD_DRIVER: Mutex<KeyboardDriver> = Mutex::new(KeyboardDriver::new());
@@ -24,9 +27,7 @@ pub struct KeyboardDriver {
     pub is_unicode: bool,
 }
 
-
 impl KeyboardDriver {
-
     const fn new() -> KeyboardDriver {
         KeyboardDriver {
             pressed_keys: [false; 128],
@@ -50,7 +51,10 @@ impl KeyboardDriver {
     }
 
     pub fn handle_byte(&mut self, byte: u8) {
-        let decode = KEYBOARD.lock().add_byte(byte).expect("Failed to add byte to keyboard buffer");
+        let decode = KEYBOARD
+            .lock()
+            .add_byte(byte)
+            .expect("Failed to add byte to keyboard buffer");
         if let Some(key) = decode {
             self.handle_key_event(key);
         }
@@ -63,12 +67,12 @@ impl KeyboardDriver {
                 self.current_key = None; // make sure we arent printing stale data
                 self.current_char_as_key = Some(code);
                 self.is_unicode = true;
-            },
+            }
             pc_keyboard::DecodedKey::RawKey(key) => {
                 self.current_key = Some(key);
                 self.current_char = None;
                 self.is_unicode = false;
-            },
+            }
         }
     }
 
@@ -80,8 +84,5 @@ impl KeyboardDriver {
             self.current_char = None;
             self.current_key = None;
         }
-
     }
 }
-
-

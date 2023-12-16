@@ -1,7 +1,9 @@
-use std::{path::{PathBuf, Path}, env, fs};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
-use bootloader::{UefiBoot, BiosBoot, BootConfig};
-
+use bootloader::{BiosBoot, UefiBoot};
 
 fn main() {
     // get out directory
@@ -16,7 +18,9 @@ fn main() {
     let bios = BiosBoot::new(Path::new(&kdir));
     bios.create_disk_image(&biospath).unwrap();
 
-    let target_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("target").join(env::var("PROFILE").unwrap());
+    let target_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
+        .join("target")
+        .join(env::var("PROFILE").unwrap());
 
     let uefi_out = target_dir.join("snakian-uefi.img");
     let bios_out = target_dir.join("snakian-bios.img");
@@ -26,7 +30,4 @@ fn main() {
 
     println!("cargo:rustc-env=UEFI_IMAGE={}", uefi_out.display());
     println!("cargo:rustc-env=BIOS_IMAGE={}", bios_out.display());
-
-
-    
 }

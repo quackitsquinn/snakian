@@ -1,4 +1,3 @@
-
 /// Create chars.rs from font8x8_basic.h
 fn main() {
     println!("cargo:rerun-if-changed=chars/font8x8_basic.h");
@@ -15,10 +14,14 @@ fn main() {
     let chars = chars.replace('}', "]");
 
     // load chars.rs
-    let mut chars_rs = String::from(include_str!("src/chars.rs"));
+    let chars_rs = String::from(include_str!("src/chars.rs"));
 
     // preserve the top of chars.rs for any declarations
-    let mut before_header = chars_rs.split("// _BEGIN_CHARS_").next().unwrap().to_string();
+    let mut before_header = chars_rs
+        .split("// _BEGIN_CHARS_")
+        .next()
+        .unwrap()
+        .to_string();
 
     // re-add the header to the top of chars.rs
 
@@ -37,8 +40,4 @@ fn main() {
 
     // write the chars.rs file
     std::fs::write("src/chars.rs", before_header + &content).unwrap();
-    
-
-
-
 }

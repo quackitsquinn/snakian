@@ -1,9 +1,7 @@
-
-
+use crate::{gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println};
+use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
-use lazy_static::lazy_static;
-use crate::{println, gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex};
 
 macro_rules! def_handler_isf {
     ($idt: expr, $name: ident) => {
@@ -17,20 +15,29 @@ macro_rules! def_handler_isf {
 macro_rules! def_handler_isf_code {
     ($idt: expr,$name: ident) => {
         extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame, error_code: u64) {
-            crate::serial_println!("EXCEPTION: {} ({})\n{:#?}", stringify!($name), error_code, stack_frame);
+            crate::serial_println!(
+                "EXCEPTION: {} ({})\n{:#?}",
+                stringify!($name),
+                error_code,
+                stack_frame
+            );
         }
         $idt.$name.set_handler_fn($name);
     };
 
     ($idt: expr,$name: ident, $_trap: expr) => {
         extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
-            crate::serial_println!("EXCEPTION: {} ({})\n{:#?}", stringify!($name), error_code, stack_frame);
+            crate::serial_println!(
+                "EXCEPTION: {} ({})\n{:#?}",
+                stringify!($name),
+                error_code,
+                stack_frame
+            );
             loop {}
         }
         $idt.$name.set_handler_fn($name);
     };
 }
-
 
 lazy_static! {
     pub static ref IDT_LOADER: spin::Mutex<IdtLoader> = spin::Mutex::new(IdtLoader::new());
@@ -48,14 +55,12 @@ lazy_static! {
         def_handler_isf!(idt, breakpoint);
 
         def_handler_isf_code!(idt, double_fault, "no return");
-        
+
         let mut lock = IDT_LOADER.lock();
         lock.load(&mut idt);
         idt
     };
 }
-
-
 
 /// Initializes the IDT. This function should be called before any interrupts are enabled, and after all the handlers are added.
 pub fn init_idt() {
@@ -75,8 +80,8 @@ fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Opti
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-pub static PICS: spin::Mutex<ChainedPics> = spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
-
+pub static PICS: spin::Mutex<ChainedPics> =
+    spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 
 type HandlerFn = extern "x86-interrupt" fn(InterruptStackFrame);
 
@@ -99,10 +104,7 @@ impl InterruptHandler {
     /// # Safety
     /// This function is unsafe because it doesn't check if the index is valid. When using this function, make sure that the index is valid and what you want.
     pub unsafe fn new_unchecked(index: u8, handler: HandlerFn) -> InterruptHandler {
-        InterruptHandler {
-            index,
-            handler,
-        }
+        InterruptHandler { index, handler }
     }
 }
 /// Interrupt Descriptor Table Loader for loading the IDT
@@ -157,7 +159,8 @@ impl IdtLoader {
         if self.is_loaded {
             panic!("Cannot add handler after IDT is loaded!");
         }
-        self.handlers[index as usize] = Some(unsafe {InterruptHandler::new_unchecked(index, handler)});
+        self.handlers[index as usize] =
+            Some(unsafe { InterruptHandler::new_unchecked(index, handler) });
     }
     /// Adds a new handler to the IDT constructed from the index and handler
     pub fn add_raw(&mut self, index: InterruptIndex, handler: HandlerFn) {
