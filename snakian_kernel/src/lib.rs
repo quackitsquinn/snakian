@@ -8,6 +8,7 @@
 
 use core::{panic::PanicInfo, mem};
 
+use bootloader_api::info::FrameBuffer;
 use hardware_interrupts::init_hardware;
 
 use crate::vga_driver::{ColorCode, Color};
@@ -63,11 +64,11 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     serial_println!("   IDT initialized");
     gdt::init_gdt();
     serial_println!("   GDT initialized");
+    x86_64::instructions::interrupts::enable();
+    serial_println!("   Interrupts enabled");
     dbg!("   Initializing VGA driver!");
     let framebuf = boot_info.framebuffer.as_mut().unwrap();
     dbg!("      Framebuffer address: {:p}", framebuf);
-    vga_driver::init(framebuf);
+    vga_driver::init_vga(framebuf);
     serial_println!("}} Hardware initialized");
-    x86_64::instructions::interrupts::enable();
-    serial_println!("   Interrupts enabled");
 }

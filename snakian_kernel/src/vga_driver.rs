@@ -1,6 +1,6 @@
 use core::{fmt::{Write, self}, mem};
 
-use bootloader_api::{info::{FrameBufferInfo, FrameBuffer}, config, BootInfo};
+use bootloader_api::{info::{FrameBufferInfo, FrameBuffer, self}, config, BootInfo};
 use conquer_once::spin::OnceCell;
 use volatile::Volatile;
 use lazy_static::lazy_static;
@@ -83,12 +83,13 @@ impl ScreenChar {
 pub type RGB = (u8, u8, u8);
 pub type CharSprite = [RGB; 8 * 8]; // will be added later, but this skeleton is here for now.
 
-const MAX_BUFF_SIZE: usize = 256;
+const MAX_BUFF_SIZE: usize = 64;
 // also chars will be taken from https://github.com/dhepper/font8x8/tree/master
 
 
 struct Buffer<'a> {
     display: &'a [RGB],
+    buf: &'a FrameBuffer,
     config: FrameBufferInfo,
     char_scale: usize, // this will be used to scale the characters to the screen size. (variable font size)
     char_buff_size: (usize, usize),
@@ -96,17 +97,18 @@ struct Buffer<'a> {
 }
 
 impl<'a> Buffer<'a> {
-    pub fn new(buf: &FrameBuffer) -> Buffer<'a> {
+    pub fn new(buf: &'a FrameBuffer) -> Buffer<'a> {
         let config = buf.info();
 
         let flat = buf.buffer();
-        // SAFETY: the buffer is a slice of RGB tuples, which are the size of u8 * 3, so it is safe to transmute from a slice of u8s to a slice of RGBs
-        let display = unsafe { mem::transmute::<&[u8], &[RGB]>(flat) };
+
+        let display = unsafe { core::slice::from_raw_parts(flat.as_ptr() as *const RGB, flat.len() / mem::size_of::<RGB>()) };
 
         let char_buf_size = (config.width as usize / 8, config.width as usize / 8);
 
         Buffer {
-            display: display,
+            display,
+            buf: buf,
             config,
             char_scale: 1,
             char_buff_size: char_buf_size,
@@ -136,6 +138,15 @@ impl<'a> Buffer<'a> {
     }
 }
 
+fn clone_framebuf(buf: &FrameBuffer) -> FrameBuffer {
+    let mut ptrptr = buf as *const FrameBuffer as *const u64;
+    // SAFETY: this is safe because the FrameBuffer struct is repr(C) 
+    // and the first field is a u64, which is the address of the framebuffer
+    let addr = unsafe { *ptrptr };
+    // clones the framebuffer info
+    let info = buf.info();
+    unsafe { FrameBuffer::new(addr, info)}
+}
 pub struct Writer<'a> {
     col_pos: usize,
     row_pos: usize,
@@ -144,13 +155,12 @@ pub struct Writer<'a> {
 }
 
 impl<'a> Writer<'a> {
-    pub fn new(config: &mut FrameBuffer) -> Writer<'a> {
-        let buf = Buffer::new(&config);
+    pub fn new(config: &'a mut FrameBuffer) -> Writer<'a> {
         Writer {
             col_pos: 0,
             row_pos: 0,
             color_code: ColorCode::new(Color::White, Color::Black, false),
-            buffer: buf,
+            buffer: Buffer::new(config),
         }
     }
 
@@ -267,11 +277,11 @@ impl<'a> Write for Writer<'a> {
 
 pub static WRITER: OnceCell<Mutex<Writer>> = OnceCell::uninit();
 
-pub fn init(config: &mut FrameBuffer) {
+pub fn init_vga(config: &mut info::FrameBuffer) {
     serial_println!("Initializing VGA driver!");
     let writer = Writer::new(config);
     dbg!("Made writer, initializing writer container!");
-    WRITER.try_init_once(|| Mutex::new(writer)).expect("WRITER already initialized");
+    //WRITER.try_init_once(|| Mutex::new(writer)).expect("WRITER already initialized");
 }
 
 #[doc(hidden)]

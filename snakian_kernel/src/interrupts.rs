@@ -5,6 +5,32 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use lazy_static::lazy_static;
 use crate::{println, gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex};
 
+macro_rules! def_handler_isf {
+    ($idt: expr, $name: ident) => {
+        extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
+            crate::serial_println!("EXCEPTION: {}\n{:#?}", stringify!($name), stack_frame);
+        }
+        $idt.$name.set_handler_fn($name);
+    };
+}
+
+macro_rules! def_handler_isf_code {
+    ($idt: expr,$name: ident) => {
+        extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame, error_code: u64) {
+            crate::serial_println!("EXCEPTION: {} ({})\n{:#?}", stringify!($name), error_code, stack_frame);
+        }
+        $idt.$name.set_handler_fn($name);
+    };
+
+    ($idt: expr,$name: ident, $_trap: expr) => {
+        extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
+            crate::serial_println!("EXCEPTION: {} ({})\n{:#?}", stringify!($name), error_code, stack_frame);
+            loop {}
+        }
+        $idt.$name.set_handler_fn($name);
+    };
+}
+
 
 lazy_static! {
     pub static ref IDT_LOADER: spin::Mutex<IdtLoader> = spin::Mutex::new(IdtLoader::new());
@@ -16,46 +42,36 @@ lazy_static! {
         let mut idt = InterruptDescriptorTable::new();
 
         x86_64::set_general_handler!(&mut idt,general_handler);
-        unsafe {
-            idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(IST_FAULT_INDEX);
-            idt.general_protection_fault.set_handler_fn(general_protection_fault_handler);
-        }
+
+        def_handler_isf_code!(idt, general_protection_fault);
+
+        def_handler_isf!(idt, breakpoint);
+
+        def_handler_isf_code!(idt, double_fault, "no return");
         
         let mut lock = IDT_LOADER.lock();
         lock.load(&mut idt);
         idt
     };
 }
+
+
+
 /// Initializes the IDT. This function should be called before any interrupts are enabled, and after all the handlers are added.
 pub fn init_idt() {
-    IDT_LOADER.lock().add_handler_fn(add_breakpoint_handler);
+    IDT_LOADER.lock();
     IDT.load();
     unsafe { PICS.lock().initialize() };
 }
 
 fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Option<u64>) {
     if let Some(code) = error_code {
-        println!("EXCEPTION: {} ({})\n{:#?}", index, code, stack_frame);
+        crate::serial_println!("EXCEPTION: {} ({})\n{:#?}", index, code, stack_frame);
     } else {
-        println!("EXCEPTION: {}\n{:#?}", index, stack_frame);
+        crate::serial_println!("EXCEPTION: {}\n{:#?}", index, stack_frame);
     }
 }
 
-extern "x86-interrupt" fn general_protection_fault_handler(stack_frame: InterruptStackFrame, error_code: u64) {
-        println!("EXCEPTION: GENERAL PROTECTION FAULT ({}) \n{:#?}",error_code, stack_frame);
-}
-
-extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
-        println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
-}
-
-extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
-        panic!("EXCEPTION: DOUBLE FAULT ({}) \n{:#?}",error_code, stack_frame);
-}
-
-fn add_breakpoint_handler(idt: &mut InterruptDescriptorTable) {
-    idt.breakpoint.set_handler_fn(breakpoint_handler);
-}
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
