@@ -21,7 +21,10 @@ pub fn get_char_sprite(c: char) -> CharSprite {
     sprite
 }
 
-// The point where the chars are inserted into the file. Do not remove this comment.
+// The point where the chars are inserted into the file.
+// ====================
+//   DO NOT EDIT BELOW
+// ====================
 /// 8x8 representation of the first 128 ASCII characters. Generated from font8x8_basic.h
 // _BEGIN_CHARS_ 
 pub const CHARS: [[u8; 8]; 128] = [

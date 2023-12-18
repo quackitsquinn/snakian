@@ -8,6 +8,7 @@ use core::panic::PanicInfo;
 
 use bootloader_api::{entry_point, BootInfo};
 use pc_keyboard::KeyCode;
+use snakian_kernel::display::buffer::BUFFER;
 use snakian_kernel::keyboard_driver::KEYBOARD_DRIVER;
 use snakian_kernel::display::vga_driver::{self, WRITER};
 use snakian_kernel::{
@@ -33,10 +34,10 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     init(boot_info);
     dbg!("Initialized hardware!");
     dbg!("Entering main loop!");
-    let mut vga = vga_driver::WRITER.get().unwrap().lock();
-    vga.buffer.clear();
-    vga.buffer.set_scale(2);
-    drop(vga);
+    let mut buf = BUFFER.get().unwrap().lock();
+    buf.clear();
+    buf.set_scale(2);
+    drop(buf);
     println!("Welcome to SnakianOS!");
     println!("test test test!");
     println!("test test test_");
