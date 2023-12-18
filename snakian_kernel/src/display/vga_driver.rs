@@ -16,67 +16,8 @@ use volatile::Volatile;
 
 use crate::{display::chars, dbg, interrupts, serial_print, serial_println};
 
-fn conv_rgb_tuple(rgb: ColorTuple, format: PixelFormat) -> ColorTuple {
-    match format {
-        PixelFormat::Rgb => rgb,
-        PixelFormat::Bgr => (rgb.2,rgb.1, rgb.0),
-        PixelFormat::U8 => panic!("U8 pixel format is not supported!"),
-        PixelFormat::Unknown { red_position, green_position, blue_position } => {
-            let mut buf = [0u8; 3];
-            buf[red_position as usize] = rgb.0;
-            buf[green_position as usize] = rgb.1;
-            buf[blue_position as usize] = rgb.2;
-            (buf[0], buf[1], buf[2])
-        }
-        _ => unreachable!()
-    }
-}
+use super::{color_code::ColorCode, ColorTuple};
 
-pub type ColorTuple = (u8, u8, u8);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ColorCode {
-    pub char_color : ColorTuple,
-    pub bg_color : Option<ColorTuple>,
-    pub has_bg: bool,
-
-}
-
-impl ColorCode {
-    pub fn new(r: u8, g: u8, b: u8) -> ColorCode {
-        ColorCode {
-            char_color: (r, g, b),
-            has_bg: false,
-            bg_color: None,
-        }
-    }
-
-    pub fn new_with_bg(for_char: ColorTuple, bg: ColorTuple) -> ColorCode {
-        ColorCode {
-            char_color: for_char,
-            has_bg: true,
-            bg_color: Some(bg),
-        }
-    }
-
-    pub fn to_format(&self, format: PixelFormat) -> ColorTuple {
-        conv_rgb_tuple(self.char_color, format)
-    }
-
-    pub fn format_bg(&self, format: PixelFormat) -> Option<ColorTuple> {
-        if self.bg_color.is_some() {
-            Some(conv_rgb_tuple(self.bg_color.unwrap(), format))
-        } else {
-            None
-        }
-    }
-}
-
-impl Default for ColorCode {
-    fn default() -> Self {
-        ColorCode::new_with_bg((255, 255, 255), (0, 0, 0))
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
