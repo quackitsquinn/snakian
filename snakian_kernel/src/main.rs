@@ -18,6 +18,7 @@ use snakian_kernel::{
 };
 use spin::Mutex;
 use x86_64::instructions;
+use x86_64::registers::control::Cr3;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
 //#[cfg(not(test))]
@@ -41,8 +42,12 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     let mut vga = vga_driver::WRITER.get().unwrap().lock();
     vga.buffer.clear();
     vga.buffer.set_scale(2);
-    vga.write_str("Welcome to SnakianOS!\n");
-    vga.write_str("This is so fucking slow lmao, im not giving any instruction to slow it");
+    drop(vga);
+    println!("Welcome to SnakianOS!");
+    println!("test test test!");
+    println!("test test test_");
+    eprintln!("error!");
+    eprintln!("hi shanananananabanananana");
     let mut key: Option<char> = None;
     loop {
         let lock = KEYBOARD_DRIVER.lock();
@@ -63,7 +68,7 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     }
 }
 
-entry_point!(kmain);
+entry_point!(kmain, config = &snakian_kernel::BOOT_CONFIG);
 
 #[no_mangle]
 fn kmain(boot_info: &'static mut BootInfo) -> ! {

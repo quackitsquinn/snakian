@@ -1,7 +1,7 @@
 use crate::{gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::{structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode}, instructions::hlt};
 
 macro_rules! def_handler_isf {
     ($idt: expr, $name: ident) => {
@@ -33,7 +33,7 @@ macro_rules! def_handler_isf_code {
                 error_code,
                 stack_frame
             );
-            loop {}
+            hlt_loop();
         }
         $idt.$name.set_handler_fn($name);
     };
@@ -55,6 +55,20 @@ lazy_static! {
         def_handler_isf!(idt, breakpoint);
 
         def_handler_isf_code!(idt, double_fault, "no return");
+
+        extern "x86-interrupt" fn page_fault_handler(
+            stack_frame: InterruptStackFrame,
+            error_code: PageFaultErrorCode,
+        ) {
+            use x86_64::registers::control::Cr2;
+
+            println!("EXCEPTION: PAGE FAULT");
+            println!("Accessed Address: {:?}", Cr2::read());
+            println!("Error Code: {:?}", error_code);
+            println!("{:#?}", stack_frame);
+            hlt_loop();
+        }
+        idt.page_fault.set_handler_fn(page_fault_handler);
 
         let mut lock = IDT_LOADER.lock();
         lock.load(&mut idt);

@@ -3,11 +3,14 @@
 #![feature(panic_info_message, custom_test_frameworks, abi_x86_interrupt)]
 #![test_runner(crate::testing::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+// make it a compiler err becuase bad practice
+#![deny(unsafe_op_in_unsafe_fn)]
 
 use core::{mem, panic::PanicInfo};
 
-use bootloader_api::info::FrameBuffer;
+use bootloader_api::{info::FrameBuffer, BootloaderConfig, config::Mapping};
 use hardware_interrupts::init_hardware;
+use x86_64::VirtAddr;
 
 use crate::vga_driver::ColorCode;
 
@@ -58,9 +61,21 @@ pub extern "C" fn _start() {
 fn panic(info: &PanicInfo) -> ! {
     testing::panic_handler(info);
 }
+
+pub static BOOT_CONFIG: BootloaderConfig = {
+    let mut config = BootloaderConfig::new_default();
+    config.mappings.physical_memory = Some(Mapping::Dynamic);
+    config.kernel_stack_size = 512 * 1024; // we need a lot of space for the vga buffer
+    config
+};
+
 //TODO: determine if init stages should exist (aka multiple init functions like init_stage0 init_stage1 etc)
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     dbg!("Initializing hardware! {{");
+    dbg!("   Initializing VGA driver!");
+    let framebuf = boot_info.framebuffer.as_mut().unwrap();
+    dbg!("      Framebuffer address: {:p}", framebuf);
+    vga_driver::init_vga(framebuf);
     init_hardware();
     interrupts::init_idt();
     serial_println!("   IDT initialized");
@@ -68,9 +83,5 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     serial_println!("   GDT initialized");
     x86_64::instructions::interrupts::enable();
     serial_println!("   Interrupts enabled");
-    dbg!("   Initializing VGA driver!");
-    let framebuf = boot_info.framebuffer.as_mut().unwrap();
-    dbg!("      Framebuffer address: {:p}", framebuf);
-    vga_driver::init_vga(framebuf);
     serial_println!("}} Hardware initialized");
 }

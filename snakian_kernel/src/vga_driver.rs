@@ -6,7 +6,7 @@ use core::{
 
 use bootloader_api::{
     config,
-    info::{self, FrameBuffer, FrameBufferInfo},
+    info::{self, FrameBuffer, FrameBufferInfo, PixelFormat},
     BootInfo,
 };
 use conquer_once::spin::OnceCell;
@@ -16,13 +16,59 @@ use volatile::Volatile;
 
 use crate::{chars, dbg, interrupts, serial_print, serial_println};
 
+fn conv_rgb_tuple(rgb: ColorTuple, format: PixelFormat) -> ColorTuple {
+    match format {
+        PixelFormat::Rgb => rgb,
+        PixelFormat::Bgr => (rgb.2,rgb.1, rgb.0),
+        PixelFormat::U8 => panic!("U8 pixel format is not supported!"),
+        PixelFormat::Unknown { red_position, green_position, blue_position } => {
+            let mut buf = [0u8; 3];
+            buf[red_position as usize] = rgb.0;
+            buf[green_position as usize] = rgb.1;
+            buf[blue_position as usize] = rgb.2;
+            (buf[0], buf[1], buf[2])
+        }
+        _ => unreachable!()
+    }
+}
+
+pub type ColorTuple = (u8, u8, u8);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ColorCode(u8, u8, u8);
+pub struct ColorCode {
+    pub char_color : ColorTuple,
+    pub bg_color : Option<ColorTuple>,
+    pub has_bg: bool,
+
+}
 
 impl ColorCode {
     pub fn new(r: u8, g: u8, b: u8) -> ColorCode {
-        // 4 bits for foreground color, 4 bits for background color
-        ColorCode(r, g, b)
+        ColorCode {
+            char_color: (r, g, b),
+            has_bg: false,
+            bg_color: None,
+        }
+    }
+
+    pub fn new_with_bg(for_char: ColorTuple, bg: ColorTuple) -> ColorCode {
+        ColorCode {
+            char_color: for_char,
+            has_bg: true,
+            bg_color: Some(bg),
+        }
+    }
+
+    pub fn to_format(&self, format: PixelFormat) -> ColorTuple {
+        conv_rgb_tuple(self.char_color, format)
+    }
+
+    pub fn format_bg(&self, format: PixelFormat) -> Option<ColorTuple> {
+        if self.bg_color.is_some() {
+            Some(conv_rgb_tuple(self.bg_color.unwrap(), format))
+        } else {
+            None
+        }
     }
 }
 
@@ -62,24 +108,28 @@ impl ScreenChar {
     }
 }
 
-pub type RGB = (u8, u8, u8);
-pub type CharSprite = [bool; 8 * 8]; // will be added later, but this skeleton is here for now.
-                                     // FIXME: soo i kinda didnt keep track of what stuff is x and what stuff is y, so half the stuff is flipped and in general its a mess.
-                                     // so fix it.
-const MAX_BUFF_SIZE: (usize, usize) = (32, 32);
+pub type CharSprite = [bool; 8 * 8];
+// FIXME: soo i kinda didnt keep track of what stuff is x and what stuff is y, so half the stuff is flipped and in general its a mess.
+// so fix it.
+const MAX_BUFF_SIZE: (usize, usize) = (64,64);
 // also chars will be taken from https://github.com/dhepper/font8x8/tree/master
 
 pub struct Buffer<'a> {
-    display: &'a mut [RGB],
+    display: &'a mut [ColorTuple],
     buf: FrameBuffer,
     config: FrameBufferInfo,
     char_scale: usize, // this will be used to scale the characters to the screen size. (variable font size)
     char_buff_size: (usize, usize),
     char_buffer: [[ScreenChar; MAX_BUFF_SIZE.1]; MAX_BUFF_SIZE.0],
+    color_fmt: PixelFormat,
 }
 
 impl<'a> Buffer<'a> {
     pub fn new(buf: FrameBuffer) -> Buffer<'a> {
+        if buf.info().pixel_format == PixelFormat::U8 {
+            panic!("U8 pixel format is not supported!");
+
+        }
         let mut buf = buf;
         let config = buf.info();
 
@@ -87,8 +137,8 @@ impl<'a> Buffer<'a> {
 
         let display = unsafe {
             core::slice::from_raw_parts_mut(
-                flat.as_ptr() as *mut RGB,
-                flat.len() / mem::size_of::<RGB>(),
+                flat.as_ptr() as *mut ColorTuple,
+                flat.len() / mem::size_of::<ColorTuple>(),
             )
         };
 
@@ -97,6 +147,14 @@ impl<'a> Buffer<'a> {
             min(config.width as usize / 8, MAX_BUFF_SIZE.1 - 1) - 1,
         );
 
+        dbg!("vgainfo: {{");
+        dbg!("  width: {}", config.width);
+        dbg!("  height: {}", config.height);
+        dbg!("  bytes_per_pixel: {}", config.bytes_per_pixel);
+        dbg!("  char_buff_size: {:?}", char_buf_size);
+        dbg!("}}");
+
+
         Buffer {
             display,
             buf: buf,
@@ -104,6 +162,7 @@ impl<'a> Buffer<'a> {
             char_scale: 1,
             char_buff_size: char_buf_size,
             char_buffer: [[ScreenChar::none(); MAX_BUFF_SIZE.1]; MAX_BUFF_SIZE.0],
+            color_fmt: config.pixel_format
         }
     }
     pub fn clear(&mut self) {
@@ -121,7 +180,6 @@ impl<'a> Buffer<'a> {
         dbg!("buf size: {:?}", self.char_buff_size);
         for row in 0..self.char_buff_size.0 {
             for col in 0..self.char_buff_size.1 {
-                dbg!("Writing to ({}, {})", row, col);
                 self.char_buffer[row][col] = ScreenChar::new(c, color_code);
             }
         }
@@ -152,8 +210,7 @@ impl<'a> Buffer<'a> {
                 if c {
                     let scrx = col + x;
                     let scry = row + y;
-                    self.display[self.xy_to_index(scrx, scry)] =
-                        (color_code.0, color_code.1, color_code.2);
+                    self.display[self.xy_to_index(scrx, scry)] = color_code.to_format(self.color_fmt);
                 }
             }
         }
@@ -167,8 +224,11 @@ impl<'a> Buffer<'a> {
         color_code: ColorCode,
         scale: u8,
     ) {
-        assert!(row < self.config.height - 8);
-        assert!(col < self.config.width - 8);
+        dbg!("  writing {2}x{2} buf at {},{}", row, col, 8*scale);
+        assert!(row < self.config.height - (8 * scale) as usize);
+        assert!(col < self.config.width - (8 * scale) as usize);
+        let fill = color_code.has_bg;
+        let color = color_code.format_bg(self.color_fmt).unwrap_or((0,0,0));
         for y in 0..8 {
             for x in 0..8 {
                 let c = buf[y * 8 + x];
@@ -177,14 +237,23 @@ impl<'a> Buffer<'a> {
                     let scry = row + y * scale as usize;
                     for i in 0..scale {
                         for j in 0..scale {
-                            self.display[self.xy_to_index(scrx + i as usize, scry + j as usize)] =
-                                (color_code.0, color_code.1, color_code.2);
+                            self.display[self.xy_to_index(scrx + i as usize, scry + j as usize)] = color_code.to_format(self.color_fmt);
+                        }
+                    }
+                } else if fill {
+                    let scrx = col + x * scale as usize;
+                    let scry = row + y * scale as usize;
+                    for i in 0..scale {
+                        for j in 0..scale {
+                            self.display[self.xy_to_index(scrx + i as usize, scry + j as usize)] = color;
                         }
                     }
                 }
             }
         }
     }
+
+
 
     pub(crate) fn flush_char_buf(&mut self) {
         let buf_width = self.char_buff_size.1 - 1;
@@ -204,12 +273,43 @@ impl<'a> Buffer<'a> {
         }
     }
 
+    pub(crate) fn flush_char_at(&mut self, row: usize, col: usize) {
+        dbg!("flushing char at {},{}", row, col);
+        let c = self.char_buffer[row][col];
+        let char_sprite = chars::get_char_sprite(c.ascii_character as char);
+        self.write_8x8_buf_scaled(
+            char_sprite,
+            row * 8 * self.char_scale,
+            col * 8 * self.char_scale,
+            c.color_code,
+            self.char_scale as u8,
+        );
+    }
+
+    pub(crate) fn flush_row(&mut self, row: usize) {
+        let buf_width = self.char_buff_size.1 - 1;
+        let buf_height = self.char_buff_size.0 - 1;
+        for col in 0..buf_width {
+            let c = self.char_buffer[row][col];
+            let char_sprite = chars::get_char_sprite(c.ascii_character as char);
+            self.write_8x8_buf_scaled(
+                char_sprite,
+                row * 8 * self.char_scale,
+                col * 8 * self.char_scale,
+                c.color_code,
+                self.char_scale as u8,
+            );
+        }
+    }
+
     pub fn set_scale(&mut self, scale: usize) {
         self.char_scale = scale;
         self.char_buff_size = (
-            min(self.config.width as usize / (8 * scale), MAX_BUFF_SIZE.0),
-            min(self.config.height as usize / (8 * scale), MAX_BUFF_SIZE.1),
+            min(self.config.width as usize / (8 * scale), MAX_BUFF_SIZE.0)  - 1,
+            min(self.config.height as usize / (8 * scale), MAX_BUFF_SIZE.1) - 1,
         );
+        dbg!("set scale to {}", scale);
+        dbg!("new char_buff_size: {:?}", self.char_buff_size);
     }
 }
 
@@ -260,7 +360,6 @@ impl<'a> Writer<'a> {
             self.shift_up();
             self.row_pos = buf_height - 1;
         }
-        self.buffer.flush_char_buf();
     }
 
     pub fn write_byte(&mut self, byte: u8) {
@@ -275,10 +374,10 @@ impl<'a> Writer<'a> {
                 let col = self.col_pos;
                 let color_code = self.color_code;
                 self.buffer.char_buffer[row][col] = ScreenChar::new(byte, color_code);
+                self.buffer.flush_char_at(self.row_pos, self.col_pos);
                 self.col_pos += 1;
             }
         }
-        self.buffer.flush_char_buf();
     }
 
     pub fn write_string(&mut self, s: &str) {
@@ -375,8 +474,7 @@ pub fn _print(args: fmt::Arguments) {
     use x86_64::instructions::interrupts;
     interrupts::without_interrupts(|| {
         crate::serial::_print(args);
-        // TODO: reimpliment this with the pixel based frame buffer.
-        //WRITER.lock().write_fmt(args).unwrap();
+        WRITER.get().unwrap().lock().write_fmt(args).unwrap();
     });
 }
 
@@ -385,13 +483,11 @@ pub fn _eprint(args: fmt::Arguments) {
     use x86_64::instructions::interrupts;
     interrupts::without_interrupts(|| {
         crate::serial::_print(format_args!("ERROR: {} ", args));
-        /*
-        let mut writer = WRITER.lock();
-        let orig = writer.color_code;
-        writer.color_code = ColorCode::new(Color::Yellow, Color::Black, false);
+        let mut writer = WRITER.get().unwrap().lock();
+        let prev = writer.color_code;
+        writer.color_code = ColorCode::new_with_bg((255, 0, 0), (255,255,255));
         writer.write_fmt(args).unwrap();
-        writer.color_code = orig;
-        */ // TODO: reimpliment this with the pixel based frame buffer. while front-facing api is still the same, the backend has to be completely re-written.
+        writer.color_code = prev;
     });
 }
 
