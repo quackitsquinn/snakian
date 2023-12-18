@@ -8,20 +8,19 @@
 
 use core::{mem, panic::PanicInfo};
 
-use bootloader_api::{info::FrameBuffer, BootloaderConfig, config::Mapping};
+use bootloader_api::{config::Mapping, info::FrameBuffer, BootloaderConfig};
 use hardware_interrupts::init_hardware;
 use x86_64::VirtAddr;
 
-use display::ColorCode;
 
 pub mod display;
 pub mod gdt;
 pub mod hardware_interrupts;
 pub mod interrupts;
 pub mod keyboard_driver;
+pub mod memory;
 pub mod serial;
 pub mod testing;
-pub mod memory;
 
 #[macro_export]
 

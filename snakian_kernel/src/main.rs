@@ -8,11 +8,15 @@ use core::panic::PanicInfo;
 
 use bootloader_api::{entry_point, BootInfo};
 use pc_keyboard::KeyCode;
-use snakian_kernel::display::buffer::BUFFER;
-use snakian_kernel::keyboard_driver::KEYBOARD_DRIVER;
-use snakian_kernel::display::vga_driver::{self, WRITER};
 use snakian_kernel::{
-   dbg, eprintln, init, print, println
+    dbg,
+    display::{
+        buffer::BUFFER,
+        vga_driver::{self, WRITER},
+    },
+    eprintln, init,
+    keyboard_driver::KEYBOARD_DRIVER,
+    print, println,
 };
 use x86_64::instructions;
 

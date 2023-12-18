@@ -1,4 +1,3 @@
-
 const CHAR_RS_PATH: &str = "src/display/chars.rs";
 
 /// Create chars.rs from font8x8_basic.h

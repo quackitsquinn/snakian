@@ -14,10 +14,14 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
 
-use crate::{display::chars, dbg, interrupts, serial_print, serial_println};
+use crate::{dbg, display::chars, interrupts, serial_print, serial_println};
 
-use super::{color_code::ColorCode, ColorTuple, buffer::{Buffer, self}, clone_framebuf};
-
+use super::{
+    buffer::{self, Buffer},
+    clone_framebuf,
+    color_code::ColorCode,
+    ColorTuple,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
@@ -53,7 +57,7 @@ pub type CharSprite = [bool; 8 * 8];
 
 // also chars will be taken from https://github.com/dhepper/font8x8/tree/master
 
-pub struct Writer{
+pub struct Writer {
     col_pos: usize,
     row_pos: usize,
     pub color_code: ColorCode,
@@ -124,7 +128,8 @@ impl Writer {
 
     pub fn write_byte_at(&mut self, byte: u8, row: usize, col: usize) {
         let color_code = self.color_code;
-        buffer::BUFFER.get().unwrap().lock().char_buffer[row][col] = ScreenChar::new(byte, color_code);
+        buffer::BUFFER.get().unwrap().lock().char_buffer[row][col] =
+            ScreenChar::new(byte, color_code);
     }
 
     pub fn write_string_at(&mut self, s: &str, row: usize, col: usize, wrap: bool) {
@@ -215,7 +220,7 @@ pub fn _eprint(args: fmt::Arguments) {
         crate::serial::_print(format_args!("ERROR: {} ", args));
         let mut writer = WRITER.get().unwrap().lock();
         let prev = writer.color_code;
-        writer.color_code = ColorCode::new_with_bg((255, 0, 0), (255,255,255));
+        writer.color_code = ColorCode::new_with_bg((255, 0, 0), (255, 255, 255));
         writer.write_fmt(args).unwrap();
         writer.color_code = prev;
     });

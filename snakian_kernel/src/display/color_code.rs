@@ -7,16 +7,20 @@ use super::ColorTuple;
 fn conv_rgb_tuple(rgb: ColorTuple, format: PixelFormat) -> ColorTuple {
     match format {
         PixelFormat::Rgb => rgb,
-        PixelFormat::Bgr => (rgb.2,rgb.1, rgb.0),
+        PixelFormat::Bgr => (rgb.2, rgb.1, rgb.0),
         PixelFormat::U8 => panic!("U8 pixel format is not supported!"),
-        PixelFormat::Unknown { red_position, green_position, blue_position } => {
+        PixelFormat::Unknown {
+            red_position,
+            green_position,
+            blue_position,
+        } => {
             let mut buf = [0u8; 3];
             buf[red_position as usize] = rgb.0;
             buf[green_position as usize] = rgb.1;
             buf[blue_position as usize] = rgb.2;
             (buf[0], buf[1], buf[2])
         }
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
 
@@ -24,13 +28,12 @@ fn conv_rgb_tuple(rgb: ColorTuple, format: PixelFormat) -> ColorTuple {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ColorCode {
     /// The color of the character
-    pub char_color : ColorTuple,
+    pub char_color: ColorTuple,
     /// The background color of the character
-    pub bg_color : Option<ColorTuple>,
+    pub bg_color: Option<ColorTuple>,
     /// Whether or not the character has a background color
     /// TODO: remove this field and use bg_color.is_some() instead
     pub has_bg: bool,
-
 }
 
 impl ColorCode {

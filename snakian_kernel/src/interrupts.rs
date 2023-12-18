@@ -1,7 +1,10 @@
 use crate::{gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
-use x86_64::{structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode}, instructions::hlt};
+use x86_64::{
+    instructions::hlt,
+    structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode},
+};
 
 macro_rules! def_handler_isf {
     ($idt: expr, $name: ident) => {

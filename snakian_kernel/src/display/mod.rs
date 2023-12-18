@@ -1,15 +1,14 @@
-pub mod chars;
-pub mod vga_driver;
-pub mod color_code;
 pub mod buffer;
+pub mod chars;
+pub mod color_code;
+pub mod vga_driver;
 
 pub(super) type ColorTuple = (u8, u8, u8);
 
 use bootloader_api::info::FrameBuffer;
 
 // Re-export various modules for ease of use (and shorter imports)
-pub use crate::display::color_code::ColorCode;
-pub use crate::display::buffer::Buffer;
+pub use crate::display::{buffer::Buffer, color_code::ColorCode};
 
 /// Clones the framebuffer and returns a new FrameBuffer struct.
 /// HACK: This is gross. The framebuffer struct does not implement clone, so we have to do this.
@@ -28,5 +27,4 @@ pub fn init(buf: &mut FrameBuffer) {
     let mut buf = clone_framebuf(&buf);
     buffer::init(clone_framebuf(&buf));
     vga_driver::init_vga(&mut buf);
-    
 }

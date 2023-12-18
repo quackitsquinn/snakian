@@ -6,11 +6,14 @@ use spin::Mutex;
 
 use crate::{dbg, display::chars};
 
-use super::{ColorTuple, vga_driver::{ScreenChar, CharSprite}, ColorCode};
+use super::{
+    vga_driver::{CharSprite, ScreenChar},
+    ColorCode, ColorTuple,
+};
 
 // FIXME: soo i kinda didnt keep track of what stuff is x and what stuff is y, so half the stuff is flipped and in general its a mess.
 // so fix it.
-const MAX_BUFF_SIZE: (usize, usize) = (64,64);
+const MAX_BUFF_SIZE: (usize, usize) = (64, 64);
 // TODO: move high level buffer stuff to a writer module
 pub struct Buffer<'a> {
     pub(super) display: &'a mut [ColorTuple],
@@ -26,7 +29,6 @@ impl<'a> Buffer<'a> {
     pub(super) fn new(buf: FrameBuffer) -> Buffer<'a> {
         if buf.info().pixel_format == PixelFormat::U8 {
             panic!("U8 pixel format is not supported!");
-
         }
         let mut buf = buf;
         let config = buf.info();
@@ -52,7 +54,6 @@ impl<'a> Buffer<'a> {
         dbg!("  char_buff_size: {:?}", char_buf_size);
         dbg!("}}");
 
-
         Buffer {
             display,
             buf: buf,
@@ -60,7 +61,7 @@ impl<'a> Buffer<'a> {
             char_scale: 1,
             char_buff_size: char_buf_size,
             char_buffer: [[ScreenChar::none(); MAX_BUFF_SIZE.1]; MAX_BUFF_SIZE.0],
-            color_fmt: config.pixel_format
+            color_fmt: config.pixel_format,
         }
     }
     pub fn clear(&mut self) {
@@ -108,7 +109,8 @@ impl<'a> Buffer<'a> {
                 if c {
                     let scrx = col + x;
                     let scry = row + y;
-                    self.display[self.xy_to_index(scrx, scry)] = color_code.to_format(self.color_fmt);
+                    self.display[self.xy_to_index(scrx, scry)] =
+                        color_code.to_format(self.color_fmt);
                 }
             }
         }
@@ -122,11 +124,11 @@ impl<'a> Buffer<'a> {
         color_code: ColorCode,
         scale: u8,
     ) {
-        dbg!("  writing {2}x{2} buf at {},{}", row, col, 8*scale);
+        dbg!("  writing {2}x{2} buf at {},{}", row, col, 8 * scale);
         assert!(row < self.config.height - (8 * scale) as usize);
         assert!(col < self.config.width - (8 * scale) as usize);
         let fill = color_code.has_bg;
-        let color = color_code.format_bg(self.color_fmt).unwrap_or((0,0,0));
+        let color = color_code.format_bg(self.color_fmt).unwrap_or((0, 0, 0));
         for y in 0..8 {
             for x in 0..8 {
                 let c = buf[y * 8 + x];
@@ -135,7 +137,8 @@ impl<'a> Buffer<'a> {
                     let scry = row + y * scale as usize;
                     for i in 0..scale {
                         for j in 0..scale {
-                            self.display[self.xy_to_index(scrx + i as usize, scry + j as usize)] = color_code.to_format(self.color_fmt);
+                            self.display[self.xy_to_index(scrx + i as usize, scry + j as usize)] =
+                                color_code.to_format(self.color_fmt);
                         }
                     }
                 } else if fill {
@@ -143,15 +146,14 @@ impl<'a> Buffer<'a> {
                     let scry = row + y * scale as usize;
                     for i in 0..scale {
                         for j in 0..scale {
-                            self.display[self.xy_to_index(scrx + i as usize, scry + j as usize)] = color;
+                            self.display[self.xy_to_index(scrx + i as usize, scry + j as usize)] =
+                                color;
                         }
                     }
                 }
             }
         }
     }
-
-
 
     pub(crate) fn flush_char_buf(&mut self) {
         let buf_width = self.char_buff_size.1 - 1;
@@ -203,7 +205,7 @@ impl<'a> Buffer<'a> {
     pub fn set_scale(&mut self, scale: usize) {
         self.char_scale = scale;
         self.char_buff_size = (
-            min(self.config.width as usize / (8 * scale), MAX_BUFF_SIZE.0)  - 1,
+            min(self.config.width as usize / (8 * scale), MAX_BUFF_SIZE.0) - 1,
             min(self.config.height as usize / (8 * scale), MAX_BUFF_SIZE.1) - 1,
         );
         dbg!("set scale to {}", scale);
