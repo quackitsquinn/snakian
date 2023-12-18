@@ -22,6 +22,7 @@ pub mod keyboard_driver;
 pub mod serial;
 pub mod testing;
 pub mod vga_driver;
+pub mod memory;
 
 #[macro_export]
 
@@ -71,6 +72,14 @@ pub static BOOT_CONFIG: BootloaderConfig = {
 
 //TODO: determine if init stages should exist (aka multiple init functions like init_stage0 init_stage1 etc)
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
+    dbg!("Getting level 4 page table");
+    let phys_offset = boot_info.physical_memory_offset.into_option().unwrap();
+    let l4_table = unsafe { memory::get_l4_table(VirtAddr::new(phys_offset)) };
+    for (i, entry) in l4_table.iter().enumerate() {
+        if !entry.is_unused() {
+            dbg!("L4 Entry {} is used", i);
+        }
+    }
     dbg!("Initializing hardware! {{");
     dbg!("   Initializing VGA driver!");
     let framebuf = boot_info.framebuffer.as_mut().unwrap();

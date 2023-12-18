@@ -74,7 +74,7 @@ impl ColorCode {
 
 impl Default for ColorCode {
     fn default() -> Self {
-        ColorCode::new(255, 255, 255)
+        ColorCode::new_with_bg((255, 255, 255), (0, 0, 0))
     }
 }
 
