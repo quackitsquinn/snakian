@@ -1,3 +1,6 @@
+
+const CHAR_RS_PATH: &str = "src/display/chars.rs";
+
 /// Create chars.rs from font8x8_basic.h
 fn main() {
     println!("cargo:rerun-if-changed=chars/font8x8_basic.h");
@@ -14,7 +17,7 @@ fn main() {
     let chars = chars.replace('}', "]");
 
     // load chars.rs
-    let chars_rs = String::from(include_str!("src/chars.rs"));
+    let chars_rs = String::from(std::fs::read_to_string(CHAR_RS_PATH).unwrap());
 
     // preserve the top of chars.rs for any declarations
     let mut before_header = chars_rs
@@ -39,5 +42,5 @@ fn main() {
     content.push_str(";\n");
 
     // write the chars.rs file
-    std::fs::write("src/chars.rs", before_header + &content).unwrap();
+    std::fs::write(CHAR_RS_PATH, before_header + &content).unwrap();
 }

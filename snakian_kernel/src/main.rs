@@ -4,22 +4,16 @@
 #![test_runner(snakian_kernel::testing::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use core::fmt::Write;
-use core::mem::transmute;
 use core::panic::PanicInfo;
 
-use bootloader_api::{entry_point, BootInfo, BootloaderConfig};
+use bootloader_api::{entry_point, BootInfo};
 use pc_keyboard::KeyCode;
-use snakian_kernel::interrupts::{self, init_idt};
 use snakian_kernel::keyboard_driver::KEYBOARD_DRIVER;
-use snakian_kernel::vga_driver::{self, ColorCode, WRITER};
+use snakian_kernel::display::vga_driver::{self, WRITER};
 use snakian_kernel::{
-    chars, dbg, eprintln, hardware_interrupts, init, print, println, serial_println, sleep,
+   dbg, eprintln, init, print, println
 };
-use spin::Mutex;
 use x86_64::instructions;
-use x86_64::registers::control::Cr3;
-use x86_64::structures::idt::InterruptDescriptorTable;
 
 //#[cfg(not(test))]
 #[panic_handler]

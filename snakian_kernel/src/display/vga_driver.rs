@@ -14,7 +14,7 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
 
-use crate::{chars, dbg, interrupts, serial_print, serial_println};
+use crate::{display::chars, dbg, interrupts, serial_print, serial_println};
 
 fn conv_rgb_tuple(rgb: ColorTuple, format: PixelFormat) -> ColorTuple {
     match format {
@@ -493,7 +493,7 @@ pub fn _eprint(args: fmt::Arguments) {
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga_driver::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::display::vga_driver::_print(format_args!($($arg)*)));
 }
 
 #[macro_export]
@@ -504,7 +504,7 @@ macro_rules! println {
 
 #[macro_export]
 macro_rules! eprint {
-    ($($arg:tt)*) => ($crate::vga_driver::_eprint(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::display::vga_driver::_eprint(format_args!($($arg)*)));
 }
 
 #[macro_export]

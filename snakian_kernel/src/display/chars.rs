@@ -1,6 +1,6 @@
 use core::mem;
 
-use crate::vga_driver::CharSprite;
+use crate::display::vga_driver::CharSprite;
 
 pub fn get_char(c: char) -> [u8; 8] {
     return CHARS[c as usize];

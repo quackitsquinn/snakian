@@ -12,16 +12,15 @@ use bootloader_api::{info::FrameBuffer, BootloaderConfig, config::Mapping};
 use hardware_interrupts::init_hardware;
 use x86_64::VirtAddr;
 
-use crate::vga_driver::ColorCode;
+use crate::display::vga_driver::ColorCode;
 
-pub mod chars;
+pub mod display;
 pub mod gdt;
 pub mod hardware_interrupts;
 pub mod interrupts;
 pub mod keyboard_driver;
 pub mod serial;
 pub mod testing;
-pub mod vga_driver;
 pub mod memory;
 
 #[macro_export]
@@ -84,7 +83,7 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     dbg!("   Initializing VGA driver!");
     let framebuf = boot_info.framebuffer.as_mut().unwrap();
     dbg!("      Framebuffer address: {:p}", framebuf);
-    vga_driver::init_vga(framebuf);
+    display::vga_driver::init_vga(framebuf);
     init_hardware();
     interrupts::init_idt();
     serial_println!("   IDT initialized");
