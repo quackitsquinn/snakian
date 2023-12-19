@@ -42,11 +42,12 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     buf.clear();
     buf.set_scale(2);
     drop(buf);
-    println!("Welcome to SnakianOS!");
-    println!("test test test!");
-    println!("test test test_");
-    eprintln!("error!");
-    eprintln!("hi shanananananabanananana");
+    println!("Welcome to Snakian!");
+    println!("   >=======<- < snake");
+    println!("You Can type here, but at the moment it doesn't do anything.");
+    println!("It also might just crash if you type too much.");
+    println!("Have fun!");
+    panic!("will panic");
     let mut key: Option<char> = None;
     loop {
         let lock = KEYBOARD_DRIVER.lock();

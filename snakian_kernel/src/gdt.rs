@@ -4,7 +4,6 @@ use x86_64::{
     registers::segmentation::{Segment, CS, DS, ES, SS},
     structures::{
         gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector},
-        idt::InterruptDescriptorTable,
         tss::TaskStateSegment,
     },
     VirtAddr,

@@ -1,26 +1,16 @@
-use core::{
-    cmp::min,
-    fmt::{self, Write},
-    mem,
-};
+use core::fmt::{self, Write};
 
-use bootloader_api::{
-    config,
-    info::{self, FrameBuffer, FrameBufferInfo, PixelFormat},
-    BootInfo,
-};
+
+use bootloader_api::info::{self, FrameBuffer};
 use conquer_once::spin::OnceCell;
-use lazy_static::lazy_static;
 use spin::Mutex;
-use volatile::Volatile;
 
-use crate::{dbg, display::chars, interrupts, serial_print, serial_println};
+use crate::{dbg, serial_println, lock_once};
 
 use super::{
-    buffer::{self, Buffer},
+    buffer,
     clone_framebuf,
     color_code::ColorCode,
-    ColorTuple,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,7 +63,7 @@ impl Writer {
     }
 
     fn shift_up(&mut self) {
-        let mut buf = buffer::BUFFER.get().unwrap().lock();
+        let mut buf = lock_once!(buffer::BUFFER);
         let buf_height = buf.char_buff_size.1;
         let buf_width = buf.char_buff_size.0;
         for row in 1..buf_height {
@@ -87,7 +77,9 @@ impl Writer {
     }
 
     fn new_line(&mut self) {
-        let buf_height = buffer::BUFFER.get().unwrap().lock().char_buff_size.1;
+        let lock = lock_once!(buffer::BUFFER);
+        let buf_height = *&lock.char_buff_size.1;
+        drop(lock);
         self.col_pos = 0;
         self.row_pos += 1;
         if self.row_pos >= buf_height {
@@ -97,10 +89,13 @@ impl Writer {
     }
 
     pub fn write_byte(&mut self, byte: u8) {
-        let mut buf = buffer::BUFFER.get().unwrap().lock();
+        let mut buf = lock_once!(buffer::BUFFER);
         let buf_width = buf.char_buff_size.0;
         match byte {
-            b'\n' => self.new_line(),
+            b'\n' => {
+                drop(buf); // drop the lock so we can call new_line. otherwise we get a deadlock
+                self.new_line()
+            },
             byte => {
                 if self.col_pos >= buf_width {
                     self.new_line();
@@ -128,12 +123,12 @@ impl Writer {
 
     pub fn write_byte_at(&mut self, byte: u8, row: usize, col: usize) {
         let color_code = self.color_code;
-        buffer::BUFFER.get().unwrap().lock().char_buffer[row][col] =
+        lock_once!(buffer::BUFFER).char_buffer[row][col] =
             ScreenChar::new(byte, color_code);
     }
 
     pub fn write_string_at(&mut self, s: &str, row: usize, col: usize, wrap: bool) {
-        let mut buf = buffer::BUFFER.get().unwrap().lock();
+        let mut buf = lock_once!(buffer::BUFFER);
         let buf_width = buf.char_buff_size.0;
         if wrap && s.len() > buf_width - col {
             let (first, second) = s.split_at(buf_width - col);
@@ -148,13 +143,13 @@ impl Writer {
     }
 
     pub fn clear(&mut self) {
-        let mut buf = buffer::BUFFER.get().unwrap().lock();
+        let mut buf = lock_once!(buffer::BUFFER);
         buf.clear();
         buf.flush_char_buf();
     }
 
     pub fn fill(&mut self, c: u8) {
-        let mut buf = buffer::BUFFER.get().unwrap().lock();
+        let mut buf = lock_once!(buffer::BUFFER);
         buf.fill(c, self.color_code);
         buf.flush_char_buf();
     }
@@ -163,11 +158,11 @@ impl Writer {
         self.col_pos = 0;
         self.row_pos = 0;
         self.color_code = ColorCode::default();
-        buffer::BUFFER.get().unwrap().lock().clear();
+        lock_once!(buffer::BUFFER).clear();
     }
 
     pub fn backspace(&mut self) {
-        let buf_width = buffer::BUFFER.get().unwrap().lock().char_buff_size.0;
+        let buf_width = lock_once!(buffer::BUFFER).char_buff_size.0;
         if self.col_pos > 0 {
             self.col_pos -= 1;
             self.write_byte(b' ');
@@ -179,6 +174,11 @@ impl Writer {
             self.col_pos = buf_width - 1;
             self.row_pos -= 1;
         }
+    }
+
+    pub fn set_pos(&mut self, row: usize, col: usize) {
+        self.row_pos = row;
+        self.col_pos = col;
     }
 }
 

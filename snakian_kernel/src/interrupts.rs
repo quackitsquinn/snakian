@@ -1,4 +1,5 @@
-use crate::{gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println};
+
+use crate::{gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println, dbg};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use x86_64::{
@@ -47,7 +48,7 @@ lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
         // TODO: When a global allocator is added, use a leaking Box to allocate the IDT.
         // I really **REALLY** dislike this solution, but it's the only one that works for now (at my skill of rust magic)
-        println!("Initializing IDT"); // we want to see when this happens to ensure that it's not happening too early
+        dbg!("Initializing IDT"); // we want to see when this happens to ensure that it's not happening too early
         // i really hope that lazy_static **WAITS** until somthing accesses the IDT before it initializes it
         let mut idt = InterruptDescriptorTable::new();
 
@@ -81,9 +82,9 @@ lazy_static! {
 
 /// Initializes the IDT. This function should be called before any interrupts are enabled, and after all the handlers are added.
 pub fn init_idt() {
-    IDT_LOADER.lock();
     IDT.load();
     unsafe { PICS.lock().initialize() };
+    dbg!("IDT Initialized");
 }
 
 fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Option<u64>) {

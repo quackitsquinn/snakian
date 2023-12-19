@@ -33,12 +33,15 @@ pub mod timer {
 
     pub static TICKS: Mutex<u64> = Mutex::new(0);
 
+    pub static mut TICKS_UNSAFE: u64 = 0;
+
     pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
         unsafe {
             // make SURE that we don't get interrupted while we're incrementing the tick count
             // also, nothing else should be writing to the tick count, so we don't need to worry about that
             TICKS.force_unlock();
             *TICKS.lock() += 1;
+            TICKS_UNSAFE += 1;
             PICS.lock()
                 .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
         }

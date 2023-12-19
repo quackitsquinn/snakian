@@ -68,6 +68,11 @@ impl<'a> Buffer<'a> {
         for rgb in self.display.iter_mut() {
             *rgb = (0, 0, 0);
         }
+        for row in 0..self.char_buff_size.0 {
+            for col in 0..self.char_buff_size.1 {
+                self.char_buffer[row][col] = ScreenChar::none();
+            }
+        }
         self.fill(b' ', ColorCode::default());
     }
 
@@ -124,7 +129,6 @@ impl<'a> Buffer<'a> {
         color_code: ColorCode,
         scale: u8,
     ) {
-        dbg!("  writing {2}x{2} buf at {},{}", row, col, 8 * scale);
         assert!(row < self.config.height - (8 * scale) as usize);
         assert!(col < self.config.width - (8 * scale) as usize);
         let fill = color_code.has_bg;
@@ -174,7 +178,6 @@ impl<'a> Buffer<'a> {
     }
 
     pub(crate) fn flush_char_at(&mut self, row: usize, col: usize) {
-        dbg!("flushing char at {},{}", row, col);
         let c = self.char_buffer[row][col];
         let char_sprite = chars::get_char_sprite(c.ascii_character as char);
         self.write_8x8_buf_scaled(
