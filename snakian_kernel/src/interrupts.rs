@@ -1,5 +1,4 @@
-
-use crate::{gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println, dbg};
+use crate::{dbg, gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use x86_64::{

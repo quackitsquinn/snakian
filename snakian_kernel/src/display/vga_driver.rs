@@ -1,17 +1,12 @@
 use core::fmt::{self, Write};
 
-
 use bootloader_api::info::{self, FrameBuffer};
 use conquer_once::spin::OnceCell;
 use spin::Mutex;
 
-use crate::{dbg, serial_println, lock_once};
+use crate::{dbg, lock_once, serial_println};
 
-use super::{
-    buffer,
-    clone_framebuf,
-    color_code::ColorCode,
-};
+use super::{buffer, char_writer::CHAR_WRITER, clone_framebuf, color_code::ColorCode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
@@ -63,7 +58,7 @@ impl Writer {
     }
 
     fn shift_up(&mut self) {
-        let mut buf = lock_once!(buffer::BUFFER);
+        let mut buf = lock_once!(CHAR_WRITER);
         let buf_height = buf.char_buff_size.1;
         let buf_width = buf.char_buff_size.0;
         for row in 1..buf_height {
@@ -77,9 +72,7 @@ impl Writer {
     }
 
     fn new_line(&mut self) {
-        let lock = lock_once!(buffer::BUFFER);
-        let buf_height = *&lock.char_buff_size.1;
-        drop(lock);
+        let buf_height = lock_once!(CHAR_WRITER).char_buff_size.1;
         self.col_pos = 0;
         self.row_pos += 1;
         if self.row_pos >= buf_height {
@@ -89,13 +82,13 @@ impl Writer {
     }
 
     pub fn write_byte(&mut self, byte: u8) {
-        let mut buf = lock_once!(buffer::BUFFER);
+        let mut buf = lock_once!(CHAR_WRITER);
         let buf_width = buf.char_buff_size.0;
         match byte {
             b'\n' => {
                 drop(buf); // drop the lock so we can call new_line. otherwise we get a deadlock
                 self.new_line()
-            },
+            }
             byte => {
                 if self.col_pos >= buf_width {
                     self.new_line();
@@ -123,12 +116,11 @@ impl Writer {
 
     pub fn write_byte_at(&mut self, byte: u8, row: usize, col: usize) {
         let color_code = self.color_code;
-        lock_once!(buffer::BUFFER).char_buffer[row][col] =
-            ScreenChar::new(byte, color_code);
+        lock_once!(CHAR_WRITER).char_buffer[row][col] = ScreenChar::new(byte, color_code);
     }
 
     pub fn write_string_at(&mut self, s: &str, row: usize, col: usize, wrap: bool) {
-        let mut buf = lock_once!(buffer::BUFFER);
+        let mut buf = lock_once!(CHAR_WRITER);
         let buf_width = buf.char_buff_size.0;
         if wrap && s.len() > buf_width - col {
             let (first, second) = s.split_at(buf_width - col);
@@ -139,17 +131,17 @@ impl Writer {
                 self.write_byte_at(byte, row, col + i);
             }
         }
-        buf.flush_char_buf();
+        lock_once!(CHAR_WRITER).flush_char_buf();
     }
 
     pub fn clear(&mut self) {
         let mut buf = lock_once!(buffer::BUFFER);
         buf.clear();
-        buf.flush_char_buf();
+        lock_once!(CHAR_WRITER).flush_char_buf();
     }
 
     pub fn fill(&mut self, c: u8) {
-        let mut buf = lock_once!(buffer::BUFFER);
+        let mut buf = lock_once!(CHAR_WRITER);
         buf.fill(c, self.color_code);
         buf.flush_char_buf();
     }
@@ -162,7 +154,7 @@ impl Writer {
     }
 
     pub fn backspace(&mut self) {
-        let buf_width = lock_once!(buffer::BUFFER).char_buff_size.0;
+        let buf_width = lock_once!(CHAR_WRITER).char_buff_size.0;
         if self.col_pos > 0 {
             self.col_pos -= 1;
             self.write_byte(b' ');
@@ -209,7 +201,7 @@ pub fn _print(args: fmt::Arguments) {
     use x86_64::instructions::interrupts;
     interrupts::without_interrupts(|| {
         crate::serial::_print(args);
-        WRITER.get().unwrap().lock().write_fmt(args).unwrap();
+        lock_once!(WRITER).write_fmt(args).unwrap();
     });
 }
 
@@ -218,7 +210,7 @@ pub fn _eprint(args: fmt::Arguments) {
     use x86_64::instructions::interrupts;
     interrupts::without_interrupts(|| {
         crate::serial::_print(format_args!("ERROR: {} ", args));
-        let mut writer = WRITER.get().unwrap().lock();
+        let mut writer = lock_once!(WRITER);
         let prev = writer.color_code;
         writer.color_code = ColorCode::new_with_bg((255, 0, 0), (255, 255, 255));
         writer.write_fmt(args).unwrap();

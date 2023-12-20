@@ -1,16 +1,18 @@
 pub mod buffer;
+mod char_writer;
 pub mod chars;
 pub mod color_code;
-pub mod vga_driver;
+pub mod vga_driver; // low level char writer
 
 pub(super) type ColorTuple = (u8, u8, u8);
 
-use bootloader_api::info::FrameBuffer;
 use crate::lock_once;
+use bootloader_api::info::FrameBuffer;
 
 // Re-export various modules for ease of use (and shorter imports)
-pub use crate::display::{buffer::Buffer, color_code::ColorCode};
-pub use crate::display::vga_driver::WRITER;
+pub use crate::display::{
+    buffer::Buffer, char_writer::CHAR_WRITER, color_code::ColorCode, vga_driver::WRITER,
+};
 
 /// Clones the framebuffer and returns a new FrameBuffer struct.
 // HACK: This is gross. The framebuffer struct does not implement clone, so we have to do this.
@@ -29,5 +31,6 @@ pub fn init(buf: &mut FrameBuffer) {
     let mut buf = clone_framebuf(&buf);
     buffer::init(clone_framebuf(&buf));
     vga_driver::init_vga(&mut buf);
+    char_writer::init_char_writer(buf.info());
     lock_once!(buffer::BUFFER).clear();
 }

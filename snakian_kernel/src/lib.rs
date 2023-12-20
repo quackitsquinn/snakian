@@ -6,11 +6,11 @@
 // make it a compiler err becuase bad practice
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use core::{mem, panic::PanicInfo, fmt::Write};
+use core::{fmt::Write, mem, panic::PanicInfo};
 
 use bootloader_api::{config::Mapping, info::FrameBuffer, BootloaderConfig};
 use hardware_interrupts::init_hardware;
-use x86_64::{VirtAddr, instructions::interrupts::without_interrupts};
+use x86_64::{instructions::interrupts::without_interrupts, VirtAddr};
 
 use crate::{display::ColorCode, hardware_interrupts::timer::TICKS_UNSAFE};
 
@@ -46,12 +46,15 @@ macro_rules! dbg {
 /// Locks a OnceCell<Mutex<T>> and returns the lock
 #[macro_export]
 macro_rules! lock_once {
-    ($oncelock:expr) => { {
-        $oncelock.get().expect(concat!(
-            "OnceCell ",
-            stringify!($oncelock),
-            " not initialized!"
-        )).lock()
+    ($oncelock:expr) => {{
+        $oncelock
+            .get()
+            .expect(concat!(
+                "OnceCell ",
+                stringify!($oncelock),
+                " not initialized!"
+            ))
+            .lock()
     }};
 }
 
@@ -77,27 +80,32 @@ pub fn panic_handler(panic: &PanicInfo) -> ! {
         if unsafe { TICKS_UNSAFE } % 10 == 0 {
             let tick_compare = unsafe { TICKS_UNSAFE };
             without_interrupts(|| {
-            if ticks != tick_compare {
-                ticks = tick_compare;
-                dbg!("Panic loop iteration {}, tick count: {}", lc, unsafe { TICKS_UNSAFE });
-            } else {
-                return; // we don't want to do anything if the ticks haven't changed
-            }
-            lc += 1;
-            let mut writer = lock_once!(display::WRITER);
-            if lc % 2 == 0 {
-               writer.color_code = ColorCode::new_with_bg((255, 0, 0), (255, 255, 255));
-            } else {
-                writer.color_code = ColorCode::new_with_bg((255, 255, 255), (255, 0, 0));
-            }
-            let _ = writeln!(writer, "Kernal Panic in file {} at line {}\nPanic Reason:{}",
-            panic.location().unwrap().file(),
-            panic.location().unwrap().line(),
-            panic.message().unwrap()); // we dont care if this fails, its a panic so if we panic while panicing, idek what happens
-            // forces the write position to the beginning of the buffer.
-            writer.set_pos(0, 0);
-        });
-    }
+                if ticks != tick_compare {
+                    ticks = tick_compare;
+                    dbg!("Panic loop iteration {}, tick count: {}", lc, unsafe {
+                        TICKS_UNSAFE
+                    });
+                } else {
+                    return; // we don't want to do anything if the ticks haven't changed
+                }
+                lc += 1;
+                let mut writer = lock_once!(display::WRITER);
+                if lc % 2 == 0 {
+                    writer.color_code = ColorCode::new_with_bg((255, 0, 0), (255, 255, 255));
+                } else {
+                    writer.color_code = ColorCode::new_with_bg((255, 255, 255), (255, 0, 0));
+                }
+                let _ = writeln!(
+                    writer,
+                    "Kernal Panic in file {} at line {}\nPanic Reason:{}",
+                    panic.location().unwrap().file(),
+                    panic.location().unwrap().line(),
+                    panic.message().unwrap()
+                ); // we dont care if this fails, its a panic so if we panic while panicing, idek what happens
+                   // forces the write position to the beginning of the buffer.
+                writer.set_pos(0, 0);
+            });
+        }
     }
     interrupts::hlt_loop();
 }

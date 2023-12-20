@@ -13,10 +13,13 @@ use snakian_kernel::{
     display::{
         buffer::BUFFER,
         vga_driver::{self, WRITER},
+        ColorCode, CHAR_WRITER,
     },
-    eprintln, init,
+    eprintln,
+    hardware_interrupts::timer::{TICKS, TICKS_UNSAFE},
+    init,
     keyboard_driver::KEYBOARD_DRIVER,
-    print, println,
+    lock_once, print, println,
 };
 use x86_64::instructions;
 
@@ -33,13 +36,23 @@ pub fn panic_handle(panic: &PanicInfo) -> ! {
 pub fn panic_handle(panic: &PanicInfo) -> ! {
     snakian_kernel::panic_handler(panic);
 }
+
+static mut x: u64 = 0xdeadbeef;
+
+pub fn rand() -> u64 {
+    unsafe {
+        x ^= x.wrapping_shl(13);
+        x ^= x.wrapping_shr(7);
+        x ^= x.wrapping_shl(17);
+    }
+    unsafe { x }
+}
 //TODO: add basic interpreter for commands (poke, peek, )
 fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     init(boot_info);
     dbg!("Initialized hardware!");
     dbg!("Entering main loop!");
-    let mut buf = BUFFER.get().unwrap().lock();
-    buf.clear();
+    let mut buf = lock_once!(CHAR_WRITER);
     buf.set_scale(2);
     drop(buf);
     println!("Welcome to Snakian!");
@@ -47,7 +60,6 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     println!("You Can type here, but at the moment it doesn't do anything.");
     println!("It also might just crash if you type too much.");
     println!("Have fun!");
-    panic!("will panic");
     let mut key: Option<char> = None;
     loop {
         let lock = KEYBOARD_DRIVER.lock();
