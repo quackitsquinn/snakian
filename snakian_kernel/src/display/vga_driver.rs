@@ -52,7 +52,7 @@ impl Writer {
     pub fn new(config: FrameBuffer) -> Writer {
         Writer {
             col_pos: 0,
-            row_pos: 5,
+            row_pos: 1,
             color_code: ColorCode::default(),
         }
     }

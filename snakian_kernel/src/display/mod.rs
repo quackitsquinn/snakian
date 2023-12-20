@@ -30,7 +30,7 @@ fn clone_framebuf(buf: &FrameBuffer) -> FrameBuffer {
 pub fn init(buf: &mut FrameBuffer) {
     let mut buf = clone_framebuf(&buf);
     buffer::init(clone_framebuf(&buf));
-    vga_driver::init_vga(&mut buf);
     char_writer::init_char_writer(buf.info());
+    vga_driver::init_vga(&mut buf);
     lock_once!(buffer::BUFFER).clear();
 }

@@ -15,18 +15,29 @@ macro_rules! get_buffer {
         crate::lock_once!(crate::display::buffer::BUFFER)
     };
 }
+
+/// A Character writer that handles writing sprites to the screen.
 pub struct CharWriter {
-    pub(super) char_scale: usize, // this will be used to scale the characters to the screen size. (variable font size)
+    /// The scale of the characters. Used becuse 8x8 on a 720p screen is tiny, and newer computers arent going to have a tiny VESA screen.
+    pub(super) char_scale: usize,
+    /// The size of the character buffer.
+    /// Because we dont currently have an allocator, we use this rather than a vec.
     pub(super) char_buff_size: (usize, usize),
+    /// The framebuffer info.
     pub(super) config: FrameBufferInfo,
     // TODO: when a alloc algorithm is implemented, this should be converted to a vec
     // [[x]y]
+    /// The character buffer.
+    /// This will be converted to a vec when a alloc algorithm is implemented, but for now it is a fixed size array.
+    /// Most of the time, not all of the buffer will be used, so it is not a huge deal.
     pub(super) char_buffer: [[ScreenChar; MAX_BUFF_SIZE.0]; MAX_BUFF_SIZE.1],
+    /// The pixel format of the framebuffer.
     pub(super) color_fmt: PixelFormat,
 }
 
 impl CharWriter {
-    pub fn new(config: FrameBufferInfo) -> CharWriter {
+    /// Creates a new CharWriter with the given framebuffer info.
+    pub fn new(config: FrameBufferInfo) -> Self {
         CharWriter {
             char_scale: 1,
             char_buff_size: (
@@ -38,26 +49,32 @@ impl CharWriter {
             color_fmt: config.pixel_format,
         }
     }
-    pub fn xy_to_index(&self, x: usize, y: usize) -> usize {
-        y * self.config.width as usize + x
-    }
+    /// Writes a 8x8 sprite to the screen with the given color.
+    /// Faster than write_8x8_buf_scaled, but does not support scaling.
+    pub fn write_8x8_buf(&mut self, sprite: CharSprite, y: usize, x: usize, color_code: ColorCode) {
+        // Preconditions
+        assert!(y < self.config.height - 8);
+        assert!(x < self.config.width - 8);
 
-    pub fn write_8x8_buf(
-        &mut self,
-        buf: CharSprite,
-        row: usize,
-        col: usize,
-        color_code: ColorCode,
-    ) {
-        assert!(row < self.config.height - 8);
-        assert!(col < self.config.width - 8);
-        for y in 0..8 {
-            for x in 0..8 {
-                let c = buf[y * 8 + x];
-                if c {
-                    let scrx = col + x;
-                    let scry = row + y;
-                    get_buffer!().set_px(scrx, scry, color_code.to_format(self.color_fmt));
+        let fg = color_code.to_format(self.color_fmt);
+        let mut bg = (0, 0, 0);
+        let mut bg_is_some = false;
+        if color_code.bg_color.is_some() {
+            bg = color_code.format_bg(self.color_fmt).unwrap();
+            bg_is_some = true;
+        }
+        // Iterate over the bits in the sprite
+        for sprite_y in 0..8 {
+            for sprite_x in 0..8 {
+                let px = sprite[sprite_y * 8 + sprite_x];
+                if px {
+                    let scrx = sprite_x + sprite_x;
+                    let scry = sprite_y + sprite_y;
+                    get_buffer!().set_px(scrx, scry, fg);
+                } else if bg_is_some {
+                    let scrx = sprite_x + sprite_x;
+                    let scry = sprite_y + sprite_y;
+                    get_buffer!().set_px(scrx, scry, bg);
                 }
             }
         }
@@ -113,39 +130,45 @@ impl CharWriter {
         }
     }
 
+    /// Flushes the character buffer to the screen.
+    /// This is a very slow operation, and should be avoided if possible.
+    /// When possible, always use flush_char_at or flush_row instead.
     pub(crate) fn flush_char_buf(&mut self) {
         let buf_width = self.char_buff_size.1 - 1;
         let buf_height = self.char_buff_size.0 - 1;
-        for row in 0..buf_height {
-            for col in 0..buf_width {
-                let c = self.char_buffer[row][col];
+        for y in 0..buf_height {
+            for x in 0..buf_width {
+                let c = self.char_buffer[y][x];
                 let char_sprite = chars::get_char_sprite(c.ascii_character as char);
                 self.write_8x8_buf_scaled(
                     char_sprite,
-                    row * 8 * self.char_scale,
-                    col * 8 * self.char_scale,
+                    y * 8 * self.char_scale,
+                    x * 8 * self.char_scale,
                     c.color_code,
                     self.char_scale as u8,
                 );
             }
         }
     }
-
-    pub(crate) fn flush_char_at(&mut self, row: usize, col: usize) {
-        let c = self.char_buffer[row][col];
+    /// Flushes the character at the given position to the screen.
+    /// This is significantly faster than flush_char_buf, and is the fastest way to write a single character to the screen.
+    pub(crate) fn flush_char_at(&mut self, char_y: usize, char_x: usize) {
+        // TODO: Preconditions
+        let c = self.char_buffer[char_y][char_x];
         let char_sprite = chars::get_char_sprite(c.ascii_character as char);
         self.write_8x8_buf_scaled(
             char_sprite,
-            row * 8 * self.char_scale,
-            col * 8 * self.char_scale,
+            char_y * 8 * self.char_scale,
+            char_x * 8 * self.char_scale,
             c.color_code,
             self.char_scale as u8,
         );
     }
-
+    /// Flushes the given row to the screen.
+    /// This is slower than flush_char_at, but faster than flush_char_buf.
     pub(crate) fn flush_row(&mut self, row: usize) {
+        // TODO: Preconditions
         let buf_width = self.char_buff_size.1 - 1;
-        let buf_height = self.char_buff_size.0 - 1;
         for col in 0..buf_width {
             let c = self.char_buffer[row][col];
             let char_sprite = chars::get_char_sprite(c.ascii_character as char);
@@ -158,7 +181,9 @@ impl CharWriter {
             );
         }
     }
-
+    /// Sets the scale of the characters.
+    /// This will not update already written characters, so it is recommended to call clear() or flush_char_buf() after calling this.
+    /// This will also update the size of the character buffer.
     pub fn set_scale(&mut self, scale: usize) {
         self.char_scale = scale;
         self.char_buff_size = (
@@ -169,10 +194,11 @@ impl CharWriter {
         dbg!("new char_buff_size: {:?}", self.char_buff_size);
     }
 
+    /// Clears the row at the given index.
     pub fn clear_row(&mut self, row: usize) {
         self.fill_row(row, b' ', ColorCode::default());
     }
-
+    /// Fills the entire character buffer with the given character and color.
     pub fn fill(&mut self, c: u8, color_code: ColorCode) {
         dbg!("buf size: {:?}", self.char_buff_size);
         for row in 0..self.char_buff_size.0 {
@@ -181,7 +207,7 @@ impl CharWriter {
             }
         }
     }
-
+    /// Fills the given row with the given character and color.
     pub fn fill_row(&mut self, row: usize, c: u8, color_code: ColorCode) {
         for col in 0..self.char_buff_size.0 {
             self.char_buffer[row][col] = ScreenChar::new(c, color_code);
