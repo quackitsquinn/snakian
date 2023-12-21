@@ -60,6 +60,7 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     println!("You Can type here, but at the moment it doesn't do anything.");
     println!("It also might just crash if you type too much.");
     println!("Have fun!");
+    println!("invalid char: \u{1f4a} ");
     let mut key: Option<char> = None;
     loop {
         let lock = KEYBOARD_DRIVER.lock();
