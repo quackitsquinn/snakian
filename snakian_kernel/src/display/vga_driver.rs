@@ -10,7 +10,7 @@ use super::{buffer, char_writer::CHAR_WRITER, clone_framebuf, color_code::ColorC
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-pub(super) struct ScreenChar {
+pub struct ScreenChar {
     pub ascii_character: u8,
     pub color_code: ColorCode,
 }

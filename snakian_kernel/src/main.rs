@@ -47,6 +47,16 @@ pub fn rand() -> u64 {
     }
     unsafe { x }
 }
+
+pub fn rand_range(min: u64, max: u64) -> u64 {
+    rand() % (max - min) + min
+}
+
+pub fn rand_byte() -> u8 {
+    rand() as u8
+}
+
+
 //TODO: add basic interpreter for commands (poke, peek, )
 fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     init(boot_info);
@@ -55,12 +65,16 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     let mut buf = lock_once!(CHAR_WRITER);
     buf.set_scale(2);
     drop(buf);
-    println!("Welcome to Snakian!");
-    println!("   >=======<- < snake");
-    println!("You Can type here, but at the moment it doesn't do anything.");
-    println!("It also might just crash if you type too much.");
-    println!("Have fun!");
-    println!("invalid char: \u{1f4a} ");
+
+    let mut buf = lock_once!(BUFFER);
+
+    
+    while !false {
+        let ind = rand_range(0, buf.display.len() as u64) as usize;
+        let c = (rand_byte(), rand_byte(), rand_byte());
+        buf.display[ind] = c;
+    }
+   
     let mut key: Option<char> = None;
     loop {
         let lock = KEYBOARD_DRIVER.lock();

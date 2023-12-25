@@ -69,7 +69,7 @@ lazy_static! {
             println!("Accessed Address: {:?}", Cr2::read());
             println!("Error Code: {:?}", error_code);
             println!("{:#?}", stack_frame);
-            hlt_loop();
+            panic!("Page Fault ({:?}:{:?})! {:#?}", error_code,Cr2::read(), stack_frame);
         }
         idt.page_fault.set_handler_fn(page_fault_handler);
 

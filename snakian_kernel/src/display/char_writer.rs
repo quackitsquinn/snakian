@@ -22,7 +22,7 @@ pub struct CharWriter {
     pub(super) char_scale: usize,
     /// The size of the character buffer.
     /// Because we dont currently have an allocator, we use this rather than a vec.
-    pub(super) char_buff_size: (usize, usize),
+    pub char_buff_size: (usize, usize),
     /// The framebuffer info.
     pub(super) config: FrameBufferInfo,
     // TODO: when a alloc algorithm is implemented, this should be converted to a vec
@@ -30,7 +30,7 @@ pub struct CharWriter {
     /// The character buffer.
     /// This will be converted to a vec when a alloc algorithm is implemented, but for now it is a fixed size array.
     /// Most of the time, not all of the buffer will be used, so it is not a huge deal.
-    pub(super) char_buffer: [[ScreenChar; MAX_BUFF_SIZE.0]; MAX_BUFF_SIZE.1],
+    pub char_buffer: [[ScreenChar; MAX_BUFF_SIZE.0]; MAX_BUFF_SIZE.1],
     /// The pixel format of the framebuffer.
     pub(super) color_fmt: PixelFormat,
 }
@@ -133,7 +133,7 @@ impl CharWriter {
     /// Flushes the character buffer to the screen.
     /// This is a very slow operation, and should be avoided if possible.
     /// When possible, always use flush_char_at or flush_row instead.
-    pub(crate) fn flush_char_buf(&mut self) {
+    pub fn flush_char_buf(&mut self) {
         let buf_width = self.char_buff_size.1 - 1;
         let buf_height = self.char_buff_size.0 - 1;
         for y in 0..buf_height {
@@ -152,7 +152,7 @@ impl CharWriter {
     }
     /// Flushes the character at the given position to the screen.
     /// This is significantly faster than flush_char_buf, and is the fastest way to write a single character to the screen.
-    pub(crate) fn flush_char_at(&mut self, char_y: usize, char_x: usize) {
+    pub fn flush_char_at(&mut self, char_y: usize, char_x: usize) {
         // TODO: Preconditions
         let c = self.char_buffer[char_y][char_x];
         let char_sprite = chars::get_char_sprite(c.ascii_character as char);
@@ -166,7 +166,7 @@ impl CharWriter {
     }
     /// Flushes the given row to the screen.
     /// This is slower than flush_char_at, but faster than flush_char_buf.
-    pub(crate) fn flush_row(&mut self, row: usize) {
+    pub fn flush_row(&mut self, row: usize) {
         // TODO: Preconditions
         let buf_width = self.char_buff_size.1 - 1;
         for col in 0..buf_width {
