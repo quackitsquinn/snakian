@@ -8,7 +8,7 @@
 
 use core::{fmt::Write, mem, panic::PanicInfo};
 
-use bootloader_api::{config::Mapping, info::FrameBuffer, BootloaderConfig};
+use bootloader_api::{config::Mapping, info::FrameBuffer, BootloaderConfig, entry_point, BootInfo};
 use hardware_interrupts::init_hardware;
 use x86_64::{instructions::interrupts::without_interrupts, VirtAddr};
 
@@ -111,11 +111,14 @@ pub fn panic_handler(panic: &PanicInfo) -> ! {
 }
 
 #[cfg(test)]
-#[no_mangle]
-pub extern "C" fn _start() {
+pub fn test_main_init(_: &'static mut BootInfo) -> ! {
     test_main();
-    interrupts::hlt_loop();
+    interrupts::hlt_loop()
 }
+
+#[cfg(test)]
+entry_point!(test_main_init);
+
 
 #[cfg(test)]
 #[panic_handler]

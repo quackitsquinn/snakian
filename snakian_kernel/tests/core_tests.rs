@@ -6,12 +6,7 @@
 
 use core::panic::PanicInfo;
 
-snakian_kernel::test_main!();
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    snakian_kernel::testing::panic_handler(info)
-}
+snakian_kernel::test_setup!();
 
 #[test_case]
 fn test_test_runner() {

@@ -1,5 +1,7 @@
 use core::panic::PanicInfo;
 
+use bootloader_api::{BootInfo, BootloaderConfig, config::Mapping};
+
 use crate::{print, println, serial_println};
 
 pub fn test_runner(tests: &[&dyn Fn()]) {
@@ -53,13 +55,29 @@ pub fn panic_handler(panic: &PanicInfo) -> ! {
     loop {} // if qemu doesn't exit
 }
 
+pub static TEST_BOOT_CONFIG: BootloaderConfig = {
+    let mut config = BootloaderConfig::new_default();
+    config.mappings.physical_memory = Some(Mapping::Dynamic);
+    config.kernel_stack_size = 512 * 1024; // we need a lot of space for the vga buffer
+    config
+};
+
 #[macro_export]
-macro_rules! test_main {
+macro_rules! test_setup {
     () => {
+
         #[no_mangle]
-        pub extern "C" fn _start() -> ! {
+        pub fn snakian_test_entry(_: &'static mut ::bootloader_api::BootInfo ) -> ! {
             test_main();
             loop {}
         }
+
+        #[panic_handler]
+        fn panic(info: &PanicInfo) -> ! {
+            snakian_kernel::testing::panic_handler(info)
+        }
+
+        bootloader_api::entry_point!(snakian_test_entry, config = &snakian_kernel::testing::TEST_BOOT_CONFIG);
+
     };
 }
