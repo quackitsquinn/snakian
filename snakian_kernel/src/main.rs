@@ -69,7 +69,7 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     let mut buf = lock_once!(BUFFER);
 
     
-    while false {
+    loop {
         let ind = rand_range(0, buf.display.len() as u64) as usize;
         let c = (rand_byte(), rand_byte(), rand_byte());
         buf.display[ind] = c;

@@ -1,6 +1,7 @@
 use crate::{dbg, gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
+use spin::Once;
 use x86_64::{
     instructions::hlt,
     structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode},
@@ -44,46 +45,39 @@ macro_rules! def_handler_isf_code {
 
 lazy_static! {
     pub static ref IDT_LOADER: spin::Mutex<IdtLoader> = spin::Mutex::new(IdtLoader::new());
-    static ref IDT: InterruptDescriptorTable = {
-        // TODO: When a global allocator is added, use a leaking Box to allocate the IDT.
-        // I really **REALLY** dislike this solution, but it's the only one that works for now (at my skill of rust magic)
-        dbg!("Initializing IDT"); // we want to see when this happens to ensure that it's not happening too early
-        // i really hope that lazy_static **WAITS** until somthing accesses the IDT before it initializes it
-        let mut idt = InterruptDescriptorTable::new();
-
-        x86_64::set_general_handler!(&mut idt,general_handler);
-
-        def_handler_isf_code!(idt, general_protection_fault);
-
-        def_handler_isf!(idt, breakpoint);
-
-        def_handler_isf_code!(idt, double_fault, "no return");
-
-        extern "x86-interrupt" fn page_fault_handler(
-            stack_frame: InterruptStackFrame,
-            error_code: PageFaultErrorCode,
-        ) {
-            use x86_64::registers::control::Cr2;
-
-            println!("EXCEPTION: PAGE FAULT");
-            println!("Accessed Address: {:?}", Cr2::read());
-            println!("Error Code: {:?}", error_code);
-            println!("{:#?}", stack_frame);
-            panic!("Page Fault ({:?}:{:?})! {:#?}", error_code,Cr2::read(), stack_frame);
-        }
-        idt.page_fault.set_handler_fn(page_fault_handler);
-
-        let mut lock = IDT_LOADER.lock();
-        lock.load(&mut idt);
-        idt
-    };
+    static ref IDT: Once<InterruptDescriptorTable> = Once::new();
 }
 
 /// Initializes the IDT. This function should be called before any interrupts are enabled, and after all the handlers are added.
 pub fn init_idt() {
-    IDT.load();
-    unsafe { PICS.lock().initialize() };
-    dbg!("IDT Initialized");
+    dbg!("Initializing IDT");
+    let mut idt = InterruptDescriptorTable::new();
+
+    x86_64::set_general_handler!(&mut idt,general_handler);
+
+    def_handler_isf_code!(idt, general_protection_fault);
+
+    def_handler_isf!(idt, breakpoint);
+
+    def_handler_isf_code!(idt, double_fault, "no return");
+
+    extern "x86-interrupt" fn page_fault_handler(
+        stack_frame: InterruptStackFrame,
+        error_code: PageFaultErrorCode,
+    ) {
+        use x86_64::registers::control::Cr2;
+
+        println!("EXCEPTION: PAGE FAULT");
+        println!("Accessed Address: {:?}", Cr2::read());
+        println!("Error Code: {:?}", error_code);
+        println!("{:#?}", stack_frame);
+        panic!("Page Fault ({:?}:{:?})! {:#?}", error_code,Cr2::read(), stack_frame);
+    }
+    idt.page_fault.set_handler_fn(page_fault_handler);
+
+    let mut lock = IDT_LOADER.lock();
+    lock.load(&mut idt);
+    IDT.call_once(|| idt);
 }
 
 fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Option<u64>) {
