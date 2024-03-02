@@ -1,6 +1,6 @@
 use core::panic::PanicInfo;
 
-use bootloader_api::{BootInfo, BootloaderConfig, config::Mapping};
+use bootloader_api::{config::Mapping, BootInfo, BootloaderConfig};
 
 use crate::{print, println, serial_println};
 
@@ -65,9 +65,8 @@ pub static TEST_BOOT_CONFIG: BootloaderConfig = {
 #[macro_export]
 macro_rules! test_setup {
     () => {
-
         #[no_mangle]
-        pub fn snakian_test_entry(_: &'static mut ::bootloader_api::BootInfo ) -> ! {
+        pub fn snakian_test_entry(_: &'static mut ::bootloader_api::BootInfo) -> ! {
             test_main();
             loop {}
         }
@@ -77,7 +76,9 @@ macro_rules! test_setup {
             snakian_kernel::testing::panic_handler(info)
         }
 
-        bootloader_api::entry_point!(snakian_test_entry, config = &snakian_kernel::testing::TEST_BOOT_CONFIG);
-
+        bootloader_api::entry_point!(
+            snakian_test_entry,
+            config = &snakian_kernel::testing::TEST_BOOT_CONFIG
+        );
     };
 }

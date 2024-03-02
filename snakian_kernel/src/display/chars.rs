@@ -2,7 +2,7 @@ use core::mem;
 
 use crate::display::vga_driver::CharSprite;
 
-const ERR_SPR: [u8;8] = CHARS[0x3F]; // question mark
+const ERR_SPR: [u8; 8] = CHARS[0x3F]; // question mark
 
 pub fn get_char(c: char) -> [u8; 8] {
     if c >= 128 as char {

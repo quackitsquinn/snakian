@@ -9,7 +9,7 @@ test = false
 bench = false
 
 [dependencies]
-bootloader_api = "0.11.4"
+bootloader_api = "0.11.7"
 conquer-once = { version = "0.4.0", default-features = false }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 pc-keyboard = "0.7.0"
@@ -17,6 +17,6 @@ pic8259 = "0.10.4"
 spin = "0.9.8"
 uart_16550 = "0.3.0"
 volatile = "0.2.6"
-x86_64 = "0.14.11"
+x86_64 = "0.14.12"
 
 

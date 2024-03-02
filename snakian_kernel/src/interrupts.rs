@@ -1,4 +1,4 @@
-use crate::{dbg, gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, println};
+use crate::{dbg, gdt::IST_FAULT_INDEX, hardware_interrupts::InterruptIndex, lock_once, println};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use spin::Once;
@@ -53,7 +53,7 @@ pub fn init_idt() {
     dbg!("Initializing IDT");
     let mut idt = InterruptDescriptorTable::new();
 
-    x86_64::set_general_handler!(&mut idt,general_handler);
+    x86_64::set_general_handler!(&mut idt, general_handler);
 
     def_handler_isf_code!(idt, general_protection_fault);
 
@@ -71,13 +71,20 @@ pub fn init_idt() {
         println!("Accessed Address: {:?}", Cr2::read());
         println!("Error Code: {:?}", error_code);
         println!("{:#?}", stack_frame);
-        panic!("Page Fault ({:?}:{:?})! {:#?}", error_code,Cr2::read(), stack_frame);
+        panic!(
+            "Page Fault ({:?}:{:?})! {:#?}",
+            error_code,
+            Cr2::read(),
+            stack_frame
+        );
     }
     idt.page_fault.set_handler_fn(page_fault_handler);
 
     let mut lock = IDT_LOADER.lock();
     lock.load(&mut idt);
     IDT.call_once(|| idt);
+    IDT.get().unwrap().load();
+    unsafe { PICS.lock().initialize() };
 }
 
 fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Option<u64>) {
