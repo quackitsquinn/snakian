@@ -5,22 +5,21 @@
 #![reexport_test_harness_main = "test_main"]
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use core::panic::PanicInfo;
-use core::mem;
+use core::{mem, panic::PanicInfo};
 
 use bootloader_api::{entry_point, BootInfo};
 use pc_keyboard::KeyCode;
-#[allow(unused_imports)] 
+#[allow(unused_imports)]
 use snakian_kernel::prelude::*;
 
 use snakian_kernel::{
-    dbg, display::{
-        vga_driver::WRITER,
-        CHAR_WRITER,
-    }, init, keyboard_driver::KEYBOARD_DRIVER, memory,
+    dbg,
+    display::{self, vga_driver::WRITER, CHAR_WRITER},
+    init,
+    keyboard_driver::KEYBOARD_DRIVER,
+    memory,
 };
 use x86_64::{instructions, structures::paging::FrameAllocator, PhysAddr, VirtAddr};
-
 
 #[panic_handler]
 pub fn panic_handle(panic: &PanicInfo) -> ! {
@@ -56,7 +55,6 @@ pub fn rand_byte() -> u8 {
     rand() as u8
 }
 
-
 //TODO: add basic interpreter for commands (poke, peek, )
 fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     init(boot_info);
@@ -66,18 +64,23 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     buf.set_scale(2);
     drop(buf);
 
-   eprintln!("wewewowe");
+    eprintln!("wewewowe");
 
-   //hlt_loop();
-   
-   //panic_runner("test_panic", "test_panic");
+    //hlt_loop();
 
-    
-    // loop {
-    //     let ind = rand_range(0, buf.display.len() as u64) as usize;
-    //     let c = (rand_byte(), rand_byte(), rand_byte());
-    //     buf.display[ind] = c;
-    // }
+    //panic_runner("test_panic", "test_panic");
+    let mut buf = lock_once!(display::buffer::BUFFER);
+
+    loop {
+        let ind = rand_range(0, buf.display.len() as u64) as usize;
+        let c = (rand_byte(), rand_byte(), rand_byte());
+        buf.display[ind] = c;
+        if KEYBOARD_DRIVER.lock().current_char.is_some() {
+            break;
+        }
+    }
+
+    drop(buf);
 
     let mut key: Option<char> = None;
     loop {

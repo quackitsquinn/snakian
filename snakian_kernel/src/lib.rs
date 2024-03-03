@@ -11,7 +11,10 @@ use core::{fmt::Write, mem, panic::PanicInfo};
 use bootloader_api::{config::Mapping, entry_point, info::FrameBuffer, BootInfo, BootloaderConfig};
 use hardware_interrupts::init_hardware;
 use spin::Mutex;
-use x86_64::{instructions::{hlt, interrupts::without_interrupts}, VirtAddr};
+use x86_64::{
+    instructions::{hlt, interrupts::without_interrupts},
+    VirtAddr,
+};
 
 use crate::{display::ColorCode, hardware_interrupts::timer::TICKS_UNSAFE};
 
@@ -76,10 +79,10 @@ pub fn panic_handler(panic: &PanicInfo) -> ! {
 // TODO: make this more robust. Add error handling, so it can fall back to a simpler panic animation if it fails. Make it so that it theoretically can't panic.
 pub fn panic_runner(location: &str, message: &str) -> ! {
     if !*HAS_INIT.lock() {
-       serial_println!("Panic before init, cannot initialize panic writer!");
+        serial_println!("Panic before init, cannot initialize panic writer!");
         // we can't panic if we haven't initialized the hardware
         loop {
-                x86_64::instructions::hlt();
+            x86_64::instructions::hlt();
         }
     }
     let mut writer = lock_once!(display::WRITER);
@@ -147,12 +150,12 @@ pub static HAS_INIT: Mutex<bool> = Mutex::new(false);
 //TODO: determine if init stages should exist (aka multiple init functions like init_stage0 init_stage1 etc)
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     dbg!("Initializing hardware");
+    dbg!("Initializing memory");
+    unsafe { memory::init(boot_info.physical_memory_offset.into_option().unwrap()) };
     dbg!("Initializing VGA driver");
     let framebuf = boot_info.framebuffer.as_mut().unwrap();
     dbg!("Framebuffer address: {:p}", framebuf);
     display::init(framebuf);
-    dbg!("Initializing memory");
-    //unsafe { memory::init(boot_info.physical_memory_offset.into_option().unwrap()) };
     init_hardware();
     interrupts::init_idt();
     dbg!("Initialized IDT");
@@ -167,12 +170,7 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
 /// Contains several useful functions to be included in the prelude
 // TODO: when alloc is implemented, add stuff like Vec, Box, etc (like pub use alloc::vec::Vec; etc)
 pub mod prelude {
-    pub use crate::dbg;
-    pub use crate::lock_once;
-    pub use crate::serial_println;
-    pub use crate::serial_print;
-    pub use crate::println;
-    pub use crate::eprintln;
-    pub use crate::print;
-    pub use crate::eprint;
+    pub use crate::{
+        dbg, eprint, eprintln, lock_once, print, println, serial_print, serial_println,
+    };
 }

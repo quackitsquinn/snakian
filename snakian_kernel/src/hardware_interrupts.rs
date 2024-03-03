@@ -37,8 +37,8 @@ pub mod timer {
 
     pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
         unsafe {
-            // make SURE that we don't get interrupted while we're incrementing the tick count
-            // also, nothing else should be writing to the tick count, so we don't need to worry about that
+            // HACK: force_unlock is unsafe, but we're using it here to avoid a deadlock
+            // In the future, we should probably figure out a better way to do this
             TICKS.force_unlock();
             *TICKS.lock() += 1;
             TICKS_UNSAFE += 1;
