@@ -10,13 +10,14 @@ use core::{fmt::Write, mem, panic::PanicInfo};
 
 use bootloader_api::{config::Mapping, entry_point, info::FrameBuffer, BootInfo, BootloaderConfig};
 use hardware_interrupts::init_hardware;
+use ::log::Level;
 use spin::Mutex;
 use x86_64::{
     instructions::{hlt, interrupts::without_interrupts},
     VirtAddr,
 };
 
-use crate::{display::ColorCode, hardware_interrupts::timer::TICKS_UNSAFE};
+use crate::{display::ColorCode, hardware_interrupts::timer::TICKS_UNSAFE, prelude::*};
 
 pub mod display;
 pub mod gdt;
@@ -26,6 +27,7 @@ pub mod keyboard_driver;
 pub mod memory;
 pub mod serial;
 pub mod testing;
+pub mod log;
 
 #[macro_export]
 /// Prints out to the serial port with the file and line number
@@ -86,7 +88,7 @@ pub fn panic_runner(location: &str, message: &str) -> ! {
         }
     }
     let mut writer = lock_once!(display::WRITER);
-    dbg!("Panic writer initialized!");
+    info!("Panic writer initialized!");
     writer.reset();
     // set panic format to be red on white
     writer.color_code = ColorCode::new_with_bg((255, 0, 0), (255, 255, 255));
@@ -149,22 +151,30 @@ pub static BOOT_CONFIG: BootloaderConfig = {
 pub static HAS_INIT: Mutex<bool> = Mutex::new(false);
 //TODO: determine if init stages should exist (aka multiple init functions like init_stage0 init_stage1 etc)
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
-    dbg!("Initializing hardware");
-    dbg!("Initializing memory");
+    #[cfg(debug_assertions)]
+    log::init_logger(Level::Trace, Level::Trace);
+    #[cfg(not(debug_assertions))]
+    log::init_logger(Level::Trace, Level::Warn);
+    info!("Initializing hardware");
+    info!("Initializing memory");
     unsafe { memory::init(boot_info.physical_memory_offset.into_option().unwrap()) };
-    dbg!("Initializing VGA driver");
+    info!("Initializing VGA driver");
     let framebuf = boot_info.framebuffer.as_mut().unwrap();
-    dbg!("Framebuffer address: {:p}", framebuf);
+    info!("Framebuffer address: {:p}", framebuf);
     display::init(framebuf);
+    info!("Initialized VGA driver");
+    info!("Starting display logging");
+    log::init_display_logger();
+    info!("Initialized display logging");
     init_hardware();
     interrupts::init_idt();
-    dbg!("Initialized IDT");
+    info!("Initialized IDT");
     gdt::init_gdt();
-    dbg!("Initialized GDT");
-    dbg!("Enabling interrupts");
+    info!("Initialized GDT");
+    info!("Enabling interrupts");
     x86_64::instructions::interrupts::enable();
-    dbg!("Enabled interrupts");
-    dbg!("Initialized hardware");
+    info!("Enabled interrupts");
+    info!("Initialized hardware");
     *HAS_INIT.lock() = true;
 }
 /// Contains several useful functions to be included in the prelude
@@ -173,4 +183,5 @@ pub mod prelude {
     pub use crate::{
         dbg, eprint, eprintln, lock_once, print, println, serial_print, serial_println,
     };
+    pub use log::{debug, error, info, trace, warn};
 }

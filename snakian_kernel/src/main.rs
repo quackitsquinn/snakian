@@ -69,18 +69,18 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     //hlt_loop();
 
     //panic_runner("test_panic", "test_panic");
-    let mut buf = lock_once!(display::buffer::BUFFER);
+    // let mut buf = lock_once!(display::buffer::BUFFER);
 
-    loop {
-        let ind = rand_range(0, buf.display.len() as u64) as usize;
-        let c = (rand_byte(), rand_byte(), rand_byte());
-        buf.display[ind] = c;
-        if KEYBOARD_DRIVER.lock().current_char.is_some() {
-            break;
-        }
-    }
+    // loop {
+    //     let ind = rand_range(0, buf.display.len() as u64) as usize;
+    //     let c = (rand_byte(), rand_byte(), rand_byte());
+    //     buf.display[ind] = c;
+    //     if KEYBOARD_DRIVER.lock().current_char.is_some() {
+    //         break;
+    //     }
+    // }
 
-    drop(buf);
+    // drop(buf);
 
     let mut key: Option<char> = None;
     loop {

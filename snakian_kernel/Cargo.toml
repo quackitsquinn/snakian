@@ -12,6 +12,7 @@ bench = false
 bootloader_api = "0.11.7"
 conquer-once = { version = "0.4.0", default-features = false }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+log = { version = "0.4.21", default-features = false }
 pc-keyboard = "0.7.0"
 pic8259 = "0.10.4"
 # rhai = { version = "1.17.1", features = ["no_std"] } TODO: re-enable when you figure out why rhai causes build errors
