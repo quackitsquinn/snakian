@@ -9,7 +9,7 @@ default-run = "boot_bios"
 members = ["snakian_kernel"]
 
 [build-dependencies]
-bootloader = "0.11.4"
+bootloader = "0.11.7"
 snakian_kernel = { path = "snakian_kernel", artifact = "bin", target = "x86_64-unknown-none"}
 
 [dependencies]

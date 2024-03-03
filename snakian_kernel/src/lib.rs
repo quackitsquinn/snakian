@@ -152,7 +152,7 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     dbg!("Framebuffer address: {:p}", framebuf);
     display::init(framebuf);
     dbg!("Initializing memory");
-    unsafe { memory::init(boot_info.physical_memory_offset.into_option().unwrap()) };
+    //unsafe { memory::init(boot_info.physical_memory_offset.into_option().unwrap()) };
     init_hardware();
     interrupts::init_idt();
     dbg!("Initialized IDT");

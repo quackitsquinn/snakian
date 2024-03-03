@@ -66,7 +66,6 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     buf.set_scale(2);
     drop(buf);
 
-    let mut buf = lock_once!(BUFFER);
    eprintln!("wewewowe");
 
    //hlt_loop();
