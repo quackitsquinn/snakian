@@ -64,6 +64,7 @@ macro_rules! lock_once {
     }};
 }
 
+
 pub fn panic_handler(panic: &PanicInfo) -> ! {
     serial_println!(
         "Kernal Panic in file {} at line {}",
