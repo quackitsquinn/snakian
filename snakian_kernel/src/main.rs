@@ -55,6 +55,7 @@ pub fn rand_byte() -> u8 {
     rand() as u8
 }
 
+
 //TODO: add basic interpreter for commands (poke, peek, )
 fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     init(boot_info);

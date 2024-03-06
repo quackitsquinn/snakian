@@ -2,6 +2,7 @@ use core::{cell::UnsafeCell, mem::MaybeUninit};
 
 use conquer_once::spin::OnceCell;
 use log::Log;
+use spin::Mutex;
 
 use crate::{display, serial_println, prelude::*};
 
@@ -54,6 +55,8 @@ impl LogHandler {
 pub struct LoggerInstance {
     /// The inner `LogHandler` is wrapped in an `UnsafeCell` to allow for interior mutability.
     inner: UnsafeCell<LogHandler>,
+    /// A lock to ensure that multiple threads do not attempt to initialize the logger at the same time.
+    lock: Mutex<()>,
 }
 
 unsafe impl Sync for LoggerInstance {}
@@ -64,26 +67,31 @@ impl LoggerInstance {
     const fn new() -> Self {
         Self {
             inner: UnsafeCell::new(LogHandler::new(log::Level::Trace, log::Level::Trace)),
+            lock: Mutex::new(()),
         }
     }
     /// Initializes the logger with the given log level and display level.
     pub fn init(&self, level: log::Level, display_level: log::Level) {
-        let mut logger = self.inner.get();
+        let ctx = self.lock.lock();
+        let logger = self.inner.get();
         unsafe {
-            let mut logger = logger.as_mut().unwrap();
+            let logger = logger.as_mut().unwrap();
             logger.level = level;
             logger.display_level = display_level;
         }
+        drop(ctx);
     }
     /// Initializes the logger with the given log level and display level.
     pub fn init_display(&self) {
-        let mut logger = self.inner.get();
+        let ctx = self.lock.lock();
+        let logger = self.inner.get();
         unsafe {
-            let mut logger = logger.as_mut().unwrap();
+            let logger = logger.as_mut().unwrap();
             logger.init_display();
         }
+        drop(ctx);
     }
-
+    /// Gets a reference to the logger. This function is unsafe because it returns a reference to an `UnsafeCell` contents.
     pub unsafe fn get_logger(&self) -> &LogHandler {
         unsafe { &*self.inner.get() }
     }

@@ -64,7 +64,7 @@ impl KeyboardDriver {
         match event {
             pc_keyboard::DecodedKey::Unicode(character) => {
                 self.current_char = Some(character);
-                self.current_key = None; // make sure we arent printing stale data
+                self.current_key = None; // make sure we arent keeping stale data
                 self.current_char_as_key = Some(code);
                 self.is_unicode = true;
             }
