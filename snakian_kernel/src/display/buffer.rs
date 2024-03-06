@@ -7,12 +7,12 @@ use spin::Mutex;
 use crate::prelude::*;
 
 use super::{vector::Vector, ColorTuple};
-
-// FIXME: soo i kinda didnt keep track of what stuff is x and what stuff is y, so half the stuff is flipped and in general its a mess.
-// so fix it.
+/// The maximum buffer size. This is the maximum size of the buffer, and is used to prevent buffer overflows.
 const MAX_BUFF_SIZE: Vector = Vector::new(64, 64);
 
+/// A display buffer. This is a wrapper around the framebuffer, and provides a simple interface for drawing to the display.
 pub struct Buffer<'a> {
+    /// The display buffer. This is a slice of ColorTuples, which are (u8, u8, u8) tuples.
     pub display: &'a mut [ColorTuple],
     pub(super) buf: FrameBuffer,
     pub(super) config: FrameBufferInfo,

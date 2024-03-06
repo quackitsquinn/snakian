@@ -7,45 +7,7 @@ use spin::Mutex;
 use crate::{dbg, lock_once, serial_println};
 
 use super::{buffer, char_writer::CHAR_WRITER, clone_framebuf, color_code::ColorCode};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(C)]
-pub struct ScreenChar {
-    pub ascii_character: u8,
-    pub color_code: ColorCode,
-}
-
-impl ScreenChar {
-    pub fn from_u8(c: u8) -> ScreenChar {
-        ScreenChar {
-            ascii_character: c as u8,
-            color_code: ColorCode::default(),
-        }
-    }
-
-    pub fn new(c: u8, color_code: ColorCode) -> ScreenChar {
-        ScreenChar {
-            ascii_character: c as u8,
-            color_code: color_code,
-        }
-    }
-
-    pub fn new_scaled(c: u8, color_code: ColorCode, scale: u8) -> ScreenChar {
-        ScreenChar {
-            ascii_character: c as u8,
-            color_code: color_code,
-        }
-    }
-
-    pub fn none() -> ScreenChar {
-        ScreenChar {
-            ascii_character: 0,
-            color_code: ColorCode::default(),
-        }
-    }
-}
-
-pub type CharSprite = [bool; 8 * 8];
+use super::screen_char::ScreenChar;
 
 // also chars will be taken from https://github.com/dhepper/font8x8/tree/master
 /// A VGA Terminal Writer. This is a simple VGA terminal writer that writes to the VGA buffer.
@@ -57,7 +19,7 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn new(config: FrameBuffer) -> Writer {
+    pub fn new() -> Writer {
         Writer {
             col_pos: 0,
             row_pos: 1,
@@ -191,12 +153,12 @@ impl Write for Writer {
 
 pub static WRITER: OnceCell<Mutex<Writer>> = OnceCell::uninit();
 
-pub fn init_vga(config: &mut info::FrameBuffer) {
+pub fn init_vga() {
     serial_println!("Initializing VGA driver!");
     dbg!("Initializing writer container!");
     WRITER
         .try_init_once(move || {
-            let writer = Writer::new(clone_framebuf(config));
+            let writer = Writer::new();
             dbg!("Initialized writer! Moving to Mutex!");
             Mutex::new(writer)
         })

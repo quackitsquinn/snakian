@@ -1,6 +1,6 @@
 use core::mem;
 
-use crate::display::vga_driver::CharSprite;
+use crate::display::CharSprite;
 
 const ERR_SPR: [u8; 8] = CHARS[0x3F]; // question mark
 

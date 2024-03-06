@@ -1,18 +1,28 @@
+//! This module contains the display logic for the kernel.
+//! 
+//! This includes the VGA driver, the buffer, and the character writer.
+//! - The buffer is a 24-bit color buffer that is used to draw to the screen.
+//! - The character writer is a simple writer that writes to the VGA buffer.
+//! - The VGA driver is a higher level driver that is essentially a terminal writer.
+
+
 pub mod buffer;
 mod char_writer;
 mod vector;
+pub mod screen_char;
 pub mod chars;
 pub mod color_code;
 pub mod vga_driver; // low level char writer
 
 pub(super) type ColorTuple = (u8, u8, u8);
+pub type CharSprite = [bool; 8 * 8];
 
 use crate::lock_once;
 use bootloader_api::info::FrameBuffer;
 
 // Re-export various modules for ease of use (and shorter imports)
 pub use crate::display::{
-    buffer::Buffer, char_writer::CHAR_WRITER, color_code::ColorCode, vga_driver::WRITER,
+    buffer::Buffer, char_writer::CHAR_WRITER, color_code::ColorCode, vga_driver::WRITER, screen_char::ScreenChar
 };
 
 /// Clones the framebuffer and returns a new FrameBuffer struct.
@@ -32,6 +42,6 @@ pub fn init(buf: &mut FrameBuffer) {
     let mut buf = clone_framebuf(&buf);
     buffer::init(clone_framebuf(&buf));
     char_writer::init_char_writer(buf.info());
-    vga_driver::init_vga(&mut buf);
+    vga_driver::init_vga();
     lock_once!(buffer::BUFFER).clear();
 }

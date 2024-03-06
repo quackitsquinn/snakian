@@ -1,11 +1,11 @@
 use core::cmp::min;
 
-use crate::{prelude::*, display::vga_driver::ScreenChar};
+use crate::prelude::*;
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
 use conquer_once::spin::OnceCell;
 use spin::Mutex;
 
-use super::{chars, vector::Vector, vga_driver::CharSprite, ColorCode, ColorTuple};
+use super::{chars, vector::Vector, CharSprite, ColorCode, ScreenChar};
 
 /// The max size for the character buffer.
 const MAX_BUFF_SIZE: Vector = Vector::new(128, 64);

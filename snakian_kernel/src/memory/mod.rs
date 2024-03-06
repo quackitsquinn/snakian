@@ -1,7 +1,7 @@
 use conquer_once::spin::OnceCell;
 use x86_64::{
     registers::control::Cr3,
-    structures::paging::{page_table::FrameError, FrameAllocator, OffsetPageTable, Page, PageTable, Size4KiB, Translate, Mapper},
+    structures::paging::{OffsetPageTable, PageTable,Translate},
     PhysAddr, VirtAddr,
 };
 

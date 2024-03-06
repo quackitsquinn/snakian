@@ -5,10 +5,10 @@ use bootloader_api::{config::Mapping, BootInfo, BootloaderConfig};
 use crate::{print, println, serial_println};
 
 pub fn test_runner(tests: &[&dyn Fn()]) {
-    use crate::{println, testing};
+    use crate::testing;
 
     serial_println!("Running {} tests", tests.len());
-    for mut test in tests {
+    for test in tests {
         test.run();
     }
     testing::exit_qemu(testing::QemuExitCode::Success);
