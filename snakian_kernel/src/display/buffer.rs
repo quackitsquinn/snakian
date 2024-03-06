@@ -71,6 +71,14 @@ impl<'a> Buffer<'a> {
         let idx = y * self.config.width as usize + x;
         self.display[idx] = color;
     }
+    /// Updates a pixel at the given x and y coordinates, scaled by the given scale.
+    pub fn draw_px_scaled(&mut self, x: usize, y: usize, color: ColorTuple, scale: u8) {
+        for i in 0..scale {
+            for j in 0..scale {
+                self.set_px(x + i as usize, y + j as usize, color);
+            }
+        }
+    }
 }
 
 pub static BUFFER: OnceCell<Mutex<Buffer>> = OnceCell::uninit();

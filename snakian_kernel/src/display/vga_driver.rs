@@ -30,6 +30,13 @@ impl ScreenChar {
         }
     }
 
+    pub fn new_scaled(c: u8, color_code: ColorCode, scale: u8) -> ScreenChar {
+        ScreenChar {
+            ascii_character: c as u8,
+            color_code: color_code,
+        }
+    }
+
     pub fn none() -> ScreenChar {
         ScreenChar {
             ascii_character: 0,
@@ -41,7 +48,8 @@ impl ScreenChar {
 pub type CharSprite = [bool; 8 * 8];
 
 // also chars will be taken from https://github.com/dhepper/font8x8/tree/master
-
+/// A VGA Terminal Writer. This is a simple VGA terminal writer that writes to the VGA buffer.
+// TODO: rename to terminal writer or somthing actually descriptive
 pub struct Writer {
     col_pos: usize,
     row_pos: usize,
@@ -59,8 +67,8 @@ impl Writer {
 
     fn shift_up(&mut self) {
         let mut buf = lock_once!(CHAR_WRITER);
-        let buf_height = buf.char_buff_size.1;
-        let buf_width = buf.char_buff_size.0;
+        let buf_width = buf.char_buff_size.x;
+        let buf_height = buf.char_buff_size.y;
         for row in 1..buf_height {
             for col in 0..buf_width {
                 let c = buf.char_buffer[row][col];
@@ -72,7 +80,7 @@ impl Writer {
     }
 
     fn new_line(&mut self) {
-        let buf_height = lock_once!(CHAR_WRITER).char_buff_size.1;
+        let buf_height = lock_once!(CHAR_WRITER).char_buff_size.y;
         self.col_pos = 0;
         self.row_pos += 1;
         if self.row_pos >= buf_height {
@@ -83,7 +91,7 @@ impl Writer {
 
     pub fn write_byte(&mut self, byte: u8) {
         let mut buf = lock_once!(CHAR_WRITER);
-        let buf_width = buf.char_buff_size.0;
+        let buf_width = buf.char_buff_size.x;
         match byte {
             b'\n' => {
                 drop(buf); // drop the lock so we can call new_line. otherwise we get a deadlock
@@ -121,7 +129,7 @@ impl Writer {
 
     pub fn write_string_at(&mut self, s: &str, row: usize, col: usize, wrap: bool) {
         let mut buf = lock_once!(CHAR_WRITER);
-        let buf_width = buf.char_buff_size.0;
+        let buf_width = buf.char_buff_size.y;
         if wrap && s.len() > buf_width - col {
             let (first, second) = s.split_at(buf_width - col);
             self.write_string_at(first, row, col, false);
@@ -154,7 +162,7 @@ impl Writer {
     }
 
     pub fn backspace(&mut self) {
-        let buf_width = lock_once!(CHAR_WRITER).char_buff_size.0;
+        let buf_width = lock_once!(CHAR_WRITER).char_buff_size.x;
         if self.col_pos > 0 {
             self.col_pos -= 1;
             self.write_byte(b' ');
