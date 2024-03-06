@@ -1,5 +1,6 @@
 pub mod buffer;
 mod char_writer;
+mod vector;
 pub mod chars;
 pub mod color_code;
 pub mod vga_driver; // low level char writer

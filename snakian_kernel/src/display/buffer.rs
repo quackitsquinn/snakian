@@ -4,17 +4,14 @@ use bootloader_api::info::{FrameBuffer, FrameBufferInfo, PixelFormat};
 use conquer_once::spin::OnceCell;
 use spin::Mutex;
 
-use crate::{dbg, display::chars};
+use crate::prelude::*;
 
-use super::{
-    vga_driver::{CharSprite, ScreenChar},
-    ColorCode, ColorTuple,
-};
+use super::{vector::Vector, ColorTuple};
 
 // FIXME: soo i kinda didnt keep track of what stuff is x and what stuff is y, so half the stuff is flipped and in general its a mess.
 // so fix it.
-const MAX_BUFF_SIZE: (usize, usize) = (64, 64);
-// TODO: move high level buffer stuff to a writer module
+const MAX_BUFF_SIZE: Vector = Vector::new(64, 64);
+
 pub struct Buffer<'a> {
     pub display: &'a mut [ColorTuple],
     pub(super) buf: FrameBuffer,
@@ -22,33 +19,39 @@ pub struct Buffer<'a> {
 }
 
 impl<'a> Buffer<'a> {
+    /// Creates a new buffer from the given framebuffer.
     pub(super) fn new(buf: FrameBuffer) -> Buffer<'a> {
+        // Currently only supports 24-bit color. 256 color support will be added later.
         if buf.info().pixel_format == PixelFormat::U8 {
             panic!("U8 pixel format is not supported!");
         }
+        // Make the buffer mutable
         let mut buf = buf;
+        // Get the buffer info
         let config = buf.info();
 
         let flat = buf.buffer_mut();
-
+        // SAFETY: This is safe because we checked the pixel format above, so we know that the buffer is 24-bit.
+        // We do this to convert a u8 slice to a ColorTuple slice (u8, u8, u8).
         let display = unsafe {
             core::slice::from_raw_parts_mut(
                 flat.as_ptr() as *mut ColorTuple,
                 flat.len() / mem::size_of::<ColorTuple>(),
             )
         };
-
-        let char_buf_size = (
-            min(config.width as usize / 8, MAX_BUFF_SIZE.0) - 1,
-            min(config.width as usize / 8, MAX_BUFF_SIZE.1 - 1) - 1,
+        // The size of the character buffer. Because we dont currently have an allocator, we use this rather than a vec.
+        // TODO: when a alloc algorithm is implemented, this should be converted to a vec, and removed from the struct.
+        let char_buf_size = Vector::new(
+            min(config.width as usize / 8, MAX_BUFF_SIZE.x as usize) - 1,
+            min(config.width as usize / 8, MAX_BUFF_SIZE.y as usize - 1) - 1,
         );
 
-        dbg!("vgainfo: {{");
-        dbg!("  width: {}", config.width);
-        dbg!("  height: {}", config.height);
-        dbg!("  bytes_per_pixel: {}", config.bytes_per_pixel);
-        dbg!("  char_buff_size: {:?}", char_buf_size);
-        dbg!("}}");
+        info!("vgainfo: {{");
+        info!("  width: {}", config.width);
+        info!("  height: {}", config.height);
+        info!("  bytes_per_pixel: {}", config.bytes_per_pixel);
+        info!("  char_buff_size: {:?}", char_buf_size);
+        info!("}}");
 
         Buffer {
             display,
@@ -56,12 +59,14 @@ impl<'a> Buffer<'a> {
             config: config,
         }
     }
+    /// Clears the buffer.
     pub fn clear(&mut self) {
         for rgb in self.display.iter_mut() {
             *rgb = (0, 0, 0);
         }
     }
-
+    /// Updates a pixel at the given x and y coordinates.
+    #[inline(always)] // inlined because this is called a lot and is very small
     pub fn set_px(&mut self, x: usize, y: usize, color: ColorTuple) {
         let idx = y * self.config.width as usize + x;
         self.display[idx] = color;
