@@ -1,26 +1,24 @@
 use core::fmt::{self, Write};
 
-use bootloader_api::info::{self, FrameBuffer};
 use conquer_once::spin::OnceCell;
 use spin::Mutex;
 
 use crate::{dbg, lock_once, serial_println};
 
-use super::{buffer, char_writer::CHAR_WRITER, clone_framebuf, color_code::ColorCode};
+use super::{buffer, char_writer::CHAR_WRITER, color_code::ColorCode};
 use super::screen_char::ScreenChar;
 
-// also chars will be taken from https://github.com/dhepper/font8x8/tree/master
-/// A VGA Terminal Writer. This is a simple VGA terminal writer that writes to the VGA buffer.
-// TODO: rename to terminal writer or somthing actually descriptive
-pub struct Writer {
+
+/// A simple terminal writer that writes to the VESA framebuffer.
+pub struct TerminalWriter {
     col_pos: usize,
     row_pos: usize,
     pub color_code: ColorCode,
 }
 
-impl Writer {
-    pub fn new() -> Writer {
-        Writer {
+impl TerminalWriter {
+    pub fn new() -> TerminalWriter {
+        TerminalWriter {
             col_pos: 0,
             row_pos: 1,
             color_code: ColorCode::default(),
@@ -144,21 +142,21 @@ impl Writer {
     }
 }
 
-impl Write for Writer {
+impl Write for TerminalWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
         Ok(())
     }
 }
 
-pub static WRITER: OnceCell<Mutex<Writer>> = OnceCell::uninit();
+pub static WRITER: OnceCell<Mutex<TerminalWriter>> = OnceCell::uninit();
 
 pub fn init_vga() {
     serial_println!("Initializing VGA driver!");
     dbg!("Initializing writer container!");
     WRITER
         .try_init_once(move || {
-            let writer = Writer::new();
+            let writer = TerminalWriter::new();
             dbg!("Initialized writer! Moving to Mutex!");
             Mutex::new(writer)
         })
@@ -190,7 +188,7 @@ pub fn _eprint(args: fmt::Arguments) {
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::display::vga_driver::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::display::terminal::_print(format_args!($($arg)*)));
 }
 
 #[macro_export]
@@ -201,7 +199,7 @@ macro_rules! println {
 
 #[macro_export]
 macro_rules! eprint {
-    ($($arg:tt)*) => ($crate::display::vga_driver::_eprint(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::display::terminal::_eprint(format_args!($($arg)*)));
 }
 
 #[macro_export]

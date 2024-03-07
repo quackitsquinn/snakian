@@ -14,7 +14,7 @@ use snakian_kernel::prelude::*;
 
 use snakian_kernel::{
     dbg,
-    display::{self, vga_driver::WRITER, CHAR_WRITER},
+    display::{self, terminal::WRITER, CHAR_WRITER},
     init,
     keyboard_driver::KEYBOARD_DRIVER,
     memory,
