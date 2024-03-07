@@ -3,7 +3,7 @@ use core::fmt::{self, Write};
 use conquer_once::spin::OnceCell;
 use spin::Mutex;
 
-use crate::{dbg, lock_once, serial_println};
+use crate::{dbg, lock_once, serial_println, prelude::*};
 
 use super::{buffer, char_writer::CHAR_WRITER, color_code::ColorCode};
 use super::screen_char::ScreenChar;
@@ -13,19 +13,21 @@ use super::screen_char::ScreenChar;
 pub struct TerminalWriter {
     col_pos: usize,
     row_pos: usize,
+    /// The color code to write with.
     pub color_code: ColorCode,
 }
 
 impl TerminalWriter {
-    pub fn new() -> TerminalWriter {
+    /// Creates a new terminal writer.
+    pub(super) fn new() -> TerminalWriter {
         TerminalWriter {
             col_pos: 0,
             row_pos: 1,
             color_code: ColorCode::default(),
         }
     }
-
-    fn shift_up(&mut self) {
+    /// Shifts the buffer up by one row.
+    pub fn shift_up(&mut self) {
         let mut buf = lock_once!(CHAR_WRITER);
         let buf_width = buf.char_buff_size.x;
         let buf_height = buf.char_buff_size.y;
@@ -34,11 +36,12 @@ impl TerminalWriter {
                 let c = buf.char_buffer[row][col];
                 buf.char_buffer[row - 1][col] = c;
             }
+            buf.flush_row(row - 1);
         }
         buf.clear_row(buf_height - 1);
-        buf.flush_char_buf();
+        buf.flush_row(buf_height - 1);
     }
-
+    /// Moves the cursor to the next line.
     fn new_line(&mut self) {
         let buf_height = lock_once!(CHAR_WRITER).char_buff_size.y;
         self.col_pos = 0;
@@ -88,7 +91,7 @@ impl TerminalWriter {
     }
 
     pub fn write_string_at(&mut self, s: &str, row: usize, col: usize, wrap: bool) {
-        let mut buf = lock_once!(CHAR_WRITER);
+        let buf = lock_once!(CHAR_WRITER);
         let buf_width = buf.char_buff_size.y;
         if wrap && s.len() > buf_width - col {
             let (first, second) = s.split_at(buf_width - col);
@@ -125,14 +128,20 @@ impl TerminalWriter {
         let buf_width = lock_once!(CHAR_WRITER).char_buff_size.x;
         if self.col_pos > 0 {
             self.col_pos -= 1;
-            self.write_byte(b' ');
+            self.write_byte(0);
             self.col_pos -= 1;
         } else if self.row_pos > 0 {
-            self.col_pos = buf_width - 1;
             self.row_pos -= 1;
-            self.write_byte(b' ');
-            self.col_pos = buf_width - 1;
-            self.row_pos -= 1;
+            let buf = lock_once!(CHAR_WRITER);
+            for col in (0..buf_width).rev() {
+                trace!("at col {}", col);
+                // Go to the last non-empty character in the row.
+                if buf.char_buffer[col][self.row_pos].ascii_character != 0 {
+                    trace!("found non-empty char at col {}", col);
+                    self.col_pos = col;
+                    break;
+                }
+            }
         }
     }
 

@@ -84,6 +84,8 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
     // drop(buf);
 
     let mut key: Option<char> = None;
+    let mut keys = [0 as u8; 128];
+    let mut i = 0;
     loop {
         let lock = KEYBOARD_DRIVER.lock();
         if let Some(curchar) = lock.current_char {
@@ -91,8 +93,20 @@ fn os_entry_point(boot_info: &'static mut BootInfo) -> ! {
                 key = Some(curchar);
                 if lock.current_char_as_key == Some(KeyCode::Backspace) {
                     WRITER.get().unwrap().lock().backspace();
+                    keys[i] = 0;
+                    i = i.saturating_sub(1);
+                } else if lock.current_char_as_key == Some(KeyCode::Return) {
+                    // parse a command here. This is intended to be super quick and dirty
+                    if keys.starts_with(b"shup") {
+                        lock_once!(WRITER).shift_up();
+                    }
+                    keys.iter_mut().for_each(|x| *x = 0);
+                    i = 0;
+                    print!("\n")
                 } else {
                     print!("{}", key.unwrap());
+                    keys[i] = key.unwrap() as u8;
+                    i += 1;
                 }
             }
         } else {

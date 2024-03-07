@@ -88,6 +88,7 @@ pub fn panic_runner(location: &str, message: &str) -> ! {
             x86_64::instructions::hlt();
         }
     }
+    unsafe { display::WRITER.get().unwrap().force_unlock() }
     let mut writer = lock_once!(display::WRITER);
     info!("Panic writer initialized!");
     writer.reset();
@@ -153,7 +154,7 @@ pub static HAS_INIT: Mutex<bool> = Mutex::new(false);
 //TODO: determine if init stages should exist (aka multiple init functions like init_stage0 init_stage1 etc)
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     #[cfg(debug_assertions)]
-    log::init_logger(Level::Trace, Level::Trace);
+    log::init_logger(Level::Trace, Level::Warn);
     #[cfg(not(debug_assertions))]
     log::init_logger(Level::Trace, Level::Warn);
     info!("Initializing hardware");
