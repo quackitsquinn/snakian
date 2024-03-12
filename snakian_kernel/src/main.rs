@@ -23,15 +23,13 @@ use x86_64::{instructions, structures::paging::FrameAllocator, PhysAddr, VirtAdd
 
 #[panic_handler]
 pub fn panic_handle(panic: &PanicInfo) -> ! {
-    use snakian_kernel::panic_handler;
-
-    panic_handler(panic)
+    snakian_kernel::panic::panic_handler(panic)
 }
 
 #[cfg(test)]
 #[panic_handler]
 pub fn panic_handle(panic: &PanicInfo) -> ! {
-    snakian_kernel::panic_handler(panic);
+    snakian_kernel::testing::panic_handler(panic)
 }
 
 static mut random_state: u64 = 0xdeadbeef;
